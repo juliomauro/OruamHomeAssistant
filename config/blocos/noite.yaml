@@ -1,0 +1,50 @@
+  # Diario da noite (22h-8h) para o bom dia no Telegram; zera as 08:05
+  - trigger:
+      - trigger: state
+        entity_id: binary_sensor.entrada_porta_de_entrada_porta
+        from: "off"
+        to: "on"
+        id: porta
+      - trigger: state
+        entity_id: binary_sensor.rede_cloudflare
+        from: "on"
+        to: "off"
+        for: {minutes: 2}
+        id: net_off
+      - trigger: state
+        entity_id: binary_sensor.rede_cloudflare
+        from: "off"
+        to: "on"
+        id: net_on
+      - trigger: state
+        entity_id: [binary_sensor.deco_sala_online, binary_sensor.deco_office_online]
+        from: "on"
+        to: "off"
+        for: {minutes: 3}
+        id: deco
+      - trigger: event
+        event_type: entity_registry_updated
+        event_data: {action: create}
+        id: wifi
+      - trigger: time
+        at: "08:05:00"
+        id: reset
+    sensor:
+      - name: Diario da noite
+        unique_id: diario_noite
+        icon: mdi:weather-night
+        state: "{{ (this.attributes.eventos | default([]) | count) if trigger.id != 'reset' else 0 }}"
+        attributes:
+          eventos: >-
+            {% set l = this.attributes.eventos | default([]) %}
+            {% set h = now().strftime('%H:%M') %}
+            {% set noite = now().hour >= 22 or now().hour < 8 %}
+            {% set t = trigger.id %}
+            {% if t == 'reset' %}{{ [] }}
+            {% elif not noite %}{{ l }}
+            {% elif t == 'porta' %}{{ (l + [h ~ ' porta de entrada aberta'])[-20:] }}
+            {% elif t == 'net_off' %}{{ (l + [as_local(trigger.from_state.last_changed).strftime('%H:%M') ~ ' internet caiu'])[-20:] }}
+            {% elif t == 'net_on' %}{{ (l + [h ~ ' internet voltou'])[-20:] }}
+            {% elif t == 'deco' %}{{ (l + [h ~ ' ' ~ trigger.to_state.name ~ ' offline'])[-20:] }}
+            {% elif t == 'wifi' and trigger.event.data.entity_id is match('device_tracker\.(sala|office)_deco_') %}{{ (l + [h ~ ' aparelho novo no Wi-Fi: ' ~ (trigger.event.data.entity_id.split('.')[1] | regex_replace('^(sala|office)_deco_', ''))])[-20:] }}
+            {% else %}{{ l }}{% endif %}

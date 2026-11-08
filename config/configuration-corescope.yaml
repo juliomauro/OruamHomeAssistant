@@ -1,0 +1,438 @@
+# Itens do CoreScope: ficam DENTRO do bloco rest: (junto com configuration-rest.yaml). Gerado por scripts/corescope_rest.py.
+  # CoreScope da comunidade (corescope.example.org), so leitura (gerado por corescope_rest.py)
+  - resource: https://corescope.example.org/api/nodes/07c82d5f55575b0f419bbb39539f3c8716d3151dc4936774f90a24c37669696c
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope REP-AMIGO-07C8
+        unique_id: corescope_amigo
+        icon: mdi:radio-tower
+        unit_of_measurement: "pacotes"
+        state_class: measurement
+        value_template: "{{ value_json.node.relay_count_24h | int(0) }}"
+        json_attributes_path: "$.node"
+        json_attributes:
+          - name
+          - first_seen
+          - last_heard
+          - last_relayed
+          - relay_count_1h
+          - relay_active
+          - usefulness_grade
+          - usefulness_score
+          - coverage_score
+          - bridge_score
+          - redundancy_score
+          - traffic_share_score
+          - advert_count
+          - flood_advert_count_7d
+          - battery_mv
+          - temperature_c
+  - resource: https://corescope.example.org/api/nodes/07c82d5f55575b0f419bbb39539f3c8716d3151dc4936774f90a24c37669696c/analytics?days=7
+    scan_interval: 10800
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope amigo disponibilidade
+        unique_id: corescope_amigo_disponibilidade
+        icon: mdi:percent-circle
+        unit_of_measurement: "%"
+        state_class: measurement
+        value_template: "{{ value_json.computedStats.availabilityPct }}"
+        json_attributes_path: "$.computedStats"
+        json_attributes:
+          - signalGrade
+          - snrMean
+          - snrStdDev
+          - totalPackets
+          - uniqueObservers
+          - avgPacketsPerDay
+          - longestSilenceMs
+          - longestSilenceStart
+          - relayPct
+      - name: CoreScope amigo relogio
+        unique_id: corescope_amigo_relogio
+        icon: mdi:clock-alert-outline
+        unit_of_measurement: "min"
+        value_template: "{{ ((value_json.clockSkew.lastSkewSec | float(0)) / 60) | round(0) | int }}"
+        json_attributes_path: "$.clockSkew"
+        json_attributes:
+          - severity
+          - driftPerDaySec
+          - medianSkewSec
+  - resource: https://corescope.example.org/api/nodes/07c82d5f55575b0f419bbb39539f3c8716d3151dc4936774f90a24c37669696c/neighbors
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope amigo vizinhos
+        unique_id: corescope_amigo_vizinhos
+        icon: mdi:account-group
+        unit_of_measurement: "vizinhos"
+        state_class: measurement
+        value_template: "{{ value_json.neighbors | length }}"
+        json_attributes:
+          - neighbors
+      - name: CoreScope amigo melhor vizinho
+        unique_id: corescope_amigo_melhor_vizinho
+        icon: mdi:star-circle
+        value_template: "{% set l = value_json.neighbors | sort(attribute='count', reverse=true) | list %}{{ (l[0].name ~ ' (' ~ (l[0].distance_km | default(0) | round(1)) ~ ' km)')[:250] if l else '-' }}"
+  - resource: https://corescope.example.org/api/nodes/e28aa90ba6b7662ec246d5a5acfea8e215255d0108941e9774ad92ac304096c9
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope REP-NORTE-E28A
+        unique_id: corescope_reg_norte
+        icon: mdi:radio-tower
+        unit_of_measurement: "pacotes"
+        state_class: measurement
+        value_template: "{{ value_json.node.relay_count_24h | int(0) }}"
+        json_attributes_path: "$.node"
+        json_attributes:
+          - name
+          - first_seen
+          - last_heard
+          - last_relayed
+          - relay_count_1h
+          - relay_active
+          - usefulness_grade
+          - usefulness_score
+          - coverage_score
+          - bridge_score
+          - redundancy_score
+          - traffic_share_score
+          - advert_count
+          - flood_advert_count_7d
+          - battery_mv
+          - temperature_c
+  - resource: https://corescope.example.org/api/nodes/e28aa90ba6b7662ec246d5a5acfea8e215255d0108941e9774ad92ac304096c9/analytics?days=7
+    scan_interval: 10800
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_norte disponibilidade
+        unique_id: corescope_reg_norte_disponibilidade
+        icon: mdi:percent-circle
+        unit_of_measurement: "%"
+        state_class: measurement
+        value_template: "{{ value_json.computedStats.availabilityPct }}"
+        json_attributes_path: "$.computedStats"
+        json_attributes:
+          - signalGrade
+          - snrMean
+          - snrStdDev
+          - totalPackets
+          - uniqueObservers
+          - avgPacketsPerDay
+          - longestSilenceMs
+          - longestSilenceStart
+          - relayPct
+      - name: CoreScope reg_norte relogio
+        unique_id: corescope_reg_norte_relogio
+        icon: mdi:clock-alert-outline
+        unit_of_measurement: "min"
+        value_template: "{{ ((value_json.clockSkew.lastSkewSec | float(0)) / 60) | round(0) | int }}"
+        json_attributes_path: "$.clockSkew"
+        json_attributes:
+          - severity
+          - driftPerDaySec
+          - medianSkewSec
+  - resource: https://corescope.example.org/api/nodes/e28aa90ba6b7662ec246d5a5acfea8e215255d0108941e9774ad92ac304096c9/neighbors
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_norte vizinhos
+        unique_id: corescope_reg_norte_vizinhos
+        icon: mdi:account-group
+        unit_of_measurement: "vizinhos"
+        state_class: measurement
+        value_template: "{{ value_json.neighbors | length }}"
+      - name: CoreScope reg_norte melhor vizinho
+        unique_id: corescope_reg_norte_melhor_vizinho
+        icon: mdi:star-circle
+        value_template: "{% set l = value_json.neighbors | sort(attribute='count', reverse=true) | list %}{{ (l[0].name ~ ' (' ~ (l[0].distance_km | default(0) | round(1)) ~ ' km)')[:250] if l else '-' }}"
+  - resource: https://corescope.example.org/api/nodes/786a4678d64f794dcfa4d7f55b9bb31c852b0cf346ab931396cca976e9ede9cc
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope REP-SUL-786A
+        unique_id: corescope_reg_sul
+        icon: mdi:radio-tower
+        unit_of_measurement: "pacotes"
+        state_class: measurement
+        value_template: "{{ value_json.node.relay_count_24h | int(0) }}"
+        json_attributes_path: "$.node"
+        json_attributes:
+          - name
+          - first_seen
+          - last_heard
+          - last_relayed
+          - relay_count_1h
+          - relay_active
+          - usefulness_grade
+          - usefulness_score
+          - coverage_score
+          - bridge_score
+          - redundancy_score
+          - traffic_share_score
+          - advert_count
+          - flood_advert_count_7d
+          - battery_mv
+          - temperature_c
+  - resource: https://corescope.example.org/api/nodes/786a4678d64f794dcfa4d7f55b9bb31c852b0cf346ab931396cca976e9ede9cc/analytics?days=7
+    scan_interval: 10800
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_sul disponibilidade
+        unique_id: corescope_reg_sul_disponibilidade
+        icon: mdi:percent-circle
+        unit_of_measurement: "%"
+        state_class: measurement
+        value_template: "{{ value_json.computedStats.availabilityPct }}"
+        json_attributes_path: "$.computedStats"
+        json_attributes:
+          - signalGrade
+          - snrMean
+          - snrStdDev
+          - totalPackets
+          - uniqueObservers
+          - avgPacketsPerDay
+          - longestSilenceMs
+          - longestSilenceStart
+          - relayPct
+      - name: CoreScope reg_sul relogio
+        unique_id: corescope_reg_sul_relogio
+        icon: mdi:clock-alert-outline
+        unit_of_measurement: "min"
+        value_template: "{{ ((value_json.clockSkew.lastSkewSec | float(0)) / 60) | round(0) | int }}"
+        json_attributes_path: "$.clockSkew"
+        json_attributes:
+          - severity
+          - driftPerDaySec
+          - medianSkewSec
+  - resource: https://corescope.example.org/api/nodes/786a4678d64f794dcfa4d7f55b9bb31c852b0cf346ab931396cca976e9ede9cc/neighbors
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_sul vizinhos
+        unique_id: corescope_reg_sul_vizinhos
+        icon: mdi:account-group
+        unit_of_measurement: "vizinhos"
+        state_class: measurement
+        value_template: "{{ value_json.neighbors | length }}"
+      - name: CoreScope reg_sul melhor vizinho
+        unique_id: corescope_reg_sul_melhor_vizinho
+        icon: mdi:star-circle
+        value_template: "{% set l = value_json.neighbors | sort(attribute='count', reverse=true) | list %}{{ (l[0].name ~ ' (' ~ (l[0].distance_km | default(0) | round(1)) ~ ' km)')[:250] if l else '-' }}"
+  - resource: https://corescope.example.org/api/nodes/8a98e225772e059b75c4e98dad2115c9a2dab344a825638090302827e04b1bde
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope REP-LESTE-8A98
+        unique_id: corescope_reg_leste
+        icon: mdi:radio-tower
+        unit_of_measurement: "pacotes"
+        state_class: measurement
+        value_template: "{{ value_json.node.relay_count_24h | int(0) }}"
+        json_attributes_path: "$.node"
+        json_attributes:
+          - name
+          - first_seen
+          - last_heard
+          - last_relayed
+          - relay_count_1h
+          - relay_active
+          - usefulness_grade
+          - usefulness_score
+          - coverage_score
+          - bridge_score
+          - redundancy_score
+          - traffic_share_score
+          - advert_count
+          - flood_advert_count_7d
+          - battery_mv
+          - temperature_c
+  - resource: https://corescope.example.org/api/nodes/8a98e225772e059b75c4e98dad2115c9a2dab344a825638090302827e04b1bde/analytics?days=7
+    scan_interval: 10800
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_leste disponibilidade
+        unique_id: corescope_reg_leste_disponibilidade
+        icon: mdi:percent-circle
+        unit_of_measurement: "%"
+        state_class: measurement
+        value_template: "{{ value_json.computedStats.availabilityPct }}"
+        json_attributes_path: "$.computedStats"
+        json_attributes:
+          - signalGrade
+          - snrMean
+          - snrStdDev
+          - totalPackets
+          - uniqueObservers
+          - avgPacketsPerDay
+          - longestSilenceMs
+          - longestSilenceStart
+          - relayPct
+      - name: CoreScope reg_leste relogio
+        unique_id: corescope_reg_leste_relogio
+        icon: mdi:clock-alert-outline
+        unit_of_measurement: "min"
+        value_template: "{{ ((value_json.clockSkew.lastSkewSec | float(0)) / 60) | round(0) | int }}"
+        json_attributes_path: "$.clockSkew"
+        json_attributes:
+          - severity
+          - driftPerDaySec
+          - medianSkewSec
+  - resource: https://corescope.example.org/api/nodes/8a98e225772e059b75c4e98dad2115c9a2dab344a825638090302827e04b1bde/neighbors
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_leste vizinhos
+        unique_id: corescope_reg_leste_vizinhos
+        icon: mdi:account-group
+        unit_of_measurement: "vizinhos"
+        state_class: measurement
+        value_template: "{{ value_json.neighbors | length }}"
+      - name: CoreScope reg_leste melhor vizinho
+        unique_id: corescope_reg_leste_melhor_vizinho
+        icon: mdi:star-circle
+        value_template: "{% set l = value_json.neighbors | sort(attribute='count', reverse=true) | list %}{{ (l[0].name ~ ' (' ~ (l[0].distance_km | default(0) | round(1)) ~ ' km)')[:250] if l else '-' }}"
+  - resource: https://corescope.example.org/api/nodes/e0bda5037f6ca6f616d8670147fb60356f47e3cb61563a43488c9aba310a7863
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope REP-OESTE-E0BD
+        unique_id: corescope_reg_oeste
+        icon: mdi:radio-tower
+        unit_of_measurement: "pacotes"
+        state_class: measurement
+        value_template: "{{ value_json.node.relay_count_24h | int(0) }}"
+        json_attributes_path: "$.node"
+        json_attributes:
+          - name
+          - first_seen
+          - last_heard
+          - last_relayed
+          - relay_count_1h
+          - relay_active
+          - usefulness_grade
+          - usefulness_score
+          - coverage_score
+          - bridge_score
+          - redundancy_score
+          - traffic_share_score
+          - advert_count
+          - flood_advert_count_7d
+          - battery_mv
+          - temperature_c
+  - resource: https://corescope.example.org/api/nodes/e0bda5037f6ca6f616d8670147fb60356f47e3cb61563a43488c9aba310a7863/analytics?days=7
+    scan_interval: 10800
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_oeste disponibilidade
+        unique_id: corescope_reg_oeste_disponibilidade
+        icon: mdi:percent-circle
+        unit_of_measurement: "%"
+        state_class: measurement
+        value_template: "{{ value_json.computedStats.availabilityPct }}"
+        json_attributes_path: "$.computedStats"
+        json_attributes:
+          - signalGrade
+          - snrMean
+          - snrStdDev
+          - totalPackets
+          - uniqueObservers
+          - avgPacketsPerDay
+          - longestSilenceMs
+          - longestSilenceStart
+          - relayPct
+      - name: CoreScope reg_oeste relogio
+        unique_id: corescope_reg_oeste_relogio
+        icon: mdi:clock-alert-outline
+        unit_of_measurement: "min"
+        value_template: "{{ ((value_json.clockSkew.lastSkewSec | float(0)) / 60) | round(0) | int }}"
+        json_attributes_path: "$.clockSkew"
+        json_attributes:
+          - severity
+          - driftPerDaySec
+          - medianSkewSec
+  - resource: https://corescope.example.org/api/nodes/e0bda5037f6ca6f616d8670147fb60356f47e3cb61563a43488c9aba310a7863/neighbors
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope reg_oeste vizinhos
+        unique_id: corescope_reg_oeste_vizinhos
+        icon: mdi:account-group
+        unit_of_measurement: "vizinhos"
+        state_class: measurement
+        value_template: "{{ value_json.neighbors | length }}"
+      - name: CoreScope reg_oeste melhor vizinho
+        unique_id: corescope_reg_oeste_melhor_vizinho
+        icon: mdi:star-circle
+        value_template: "{% set l = value_json.neighbors | sort(attribute='count', reverse=true) | list %}{{ (l[0].name ~ ' (' ~ (l[0].distance_km | default(0) | round(1)) ~ ' km)')[:250] if l else '-' }}"
+  - resource: https://corescope.example.org/api/nodes/07c82d5f55575b0f419bbb39539f3c8716d3151dc4936774f90a24c37669696c/health
+    scan_interval: 3600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope amigo observers
+        unique_id: corescope_amigo_observers
+        icon: mdi:ear-hearing
+        unit_of_measurement: "observers"
+        value_template: "{{ value_json.observers | length }}"
+        json_attributes:
+          - observers
+          - stats
+  - resource: https://corescope.example.org/api/channels/Public/messages?limit=20
+    scan_interval: 120
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope canal Public
+        unique_id: corescope_public
+        icon: mdi:forum
+        value_template: "{{ (value_json.messages | last).packetHash if value_json.messages else '-' }}"
+        json_attributes:
+          - messages
+          - total
+  - resource: https://corescope.example.org/api/observers
+    scan_interval: 600
+    headers:
+      User-Agent: ha-casa/1.0
+    sensor:
+      - name: CoreScope meu observer
+        unique_id: corescope_meu_observer
+        icon: mdi:antenna
+        unit_of_measurement: "pacotes/h"
+        state_class: measurement
+        value_template: "{% set o = value_json.observers | selectattr('id', 'eq', '43879F79CD8738BB68F9C85809B821247D00D3419308D636E651B6E203726AAA') | list %}{{ o[0].packetsLastHour if o and o[0].packetsLastHour not in [None, 'None'] else 0 }}"
+      - name: CoreScope meu observer ultimo pacote
+        unique_id: corescope_meu_observer_ultimo_pacote
+        icon: mdi:package-up
+        value_template: "{% set o = value_json.observers | selectattr('id', 'eq', '43879F79CD8738BB68F9C85809B821247D00D3419308D636E651B6E203726AAA') | list %}{{ o[0].last_packet_at if o and o[0].last_packet_at not in [None, 'None'] else none }}"
+      - name: CoreScope meu observer visto
+        unique_id: corescope_meu_observer_visto
+        icon: mdi:wifi-check
+        value_template: "{% set o = value_json.observers | selectattr('id', 'eq', '43879F79CD8738BB68F9C85809B821247D00D3419308D636E651B6E203726AAA') | list %}{{ o[0].last_seen if o and o[0].last_seen not in [None, 'None'] else none }}"
+      - name: CoreScope meu observer total
+        unique_id: corescope_meu_observer_total
+        icon: mdi:counter
+        unit_of_measurement: "pacotes"
+        value_template: "{% set o = value_json.observers | selectattr('id', 'eq', '43879F79CD8738BB68F9C85809B821247D00D3419308D636E651B6E203726AAA') | list %}{{ o[0].packet_count if o and o[0].packet_count not in [None, 'None'] else 0 }}"
+      - name: CoreScope meu observer firmware
+        unique_id: corescope_meu_observer_firmware
+        icon: mdi:chip
+        value_template: "{% set o = value_json.observers | selectattr('id', 'eq', '43879F79CD8738BB68F9C85809B821247D00D3419308D636E651B6E203726AAA') | list %}{{ o[0].firmware if o and o[0].firmware not in [None, 'None'] else '-' }}"
+

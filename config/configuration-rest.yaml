@@ -1,0 +1,70 @@
+# Bloco rest: do configuration.yaml (Traefik + Stacklog). Os itens do CoreScope estao em configuration-corescope.yaml.
+rest:
+  - resource: https://traefik.example.com/api/overview
+    scan_interval: 60
+    binary_sensor:
+      - name: Traefik online
+        unique_id: traefik_online
+        device_class: connectivity
+        value_template: "{{ value_json is defined and value_json.http is defined }}"
+    sensor:
+      - name: Traefik rotas
+        unique_id: traefik_rotas
+        icon: mdi:routes
+        value_template: "{{ value_json.http.routers.total }}"
+      - name: Traefik servicos
+        unique_id: traefik_servicos
+        icon: mdi:server-network
+        value_template: "{{ value_json.http.services.total }}"
+      - name: Traefik problemas
+        unique_id: traefik_problemas
+        icon: mdi:alert-circle-outline
+        value_template: >-
+          {% set h = value_json.http %}
+          {{ h.routers.warnings + h.routers.errors + h.services.warnings + h.services.errors
+             + h.middlewares.warnings + h.middlewares.errors
+             + value_json.certificates.warnings + value_json.certificates.errors }}
+  # Stacklog (http://192.168.0.240:4100, so leitura)
+  - resource: http://192.168.0.240:4100/api/tasks
+    scan_interval: 300
+    sensor:
+      - name: Stacklog abertas
+        unique_id: stacklog_abertas
+        icon: mdi:format-list-checks
+        unit_of_measurement: tarefas
+        value_template: "{{ value_json | rejectattr('done') | list | count }}"
+      - name: Stacklog concluidas hoje
+        unique_id: stacklog_hoje
+        icon: mdi:check-circle-outline
+        unit_of_measurement: tarefas
+        value_template: >-
+          {% set ini = (as_timestamp(today_at()) * 1000) | int %}
+          {{ value_json | selectattr('done') | selectattr('done_at', '>=', ini) | list | count }}
+      - name: Stacklog ultima concluida
+        unique_id: stacklog_ultima
+        icon: mdi:check-decagram
+        value_template: >-
+          {% set l = value_json | selectattr('done') | sort(attribute='done_at', reverse=true) | list %}
+          {{ (l[0].title if l else '-')[:250] }}
+  - resource: http://192.168.0.240:4100/api/report
+    scan_interval: 300
+    sensor:
+      - name: Stacklog concluidas 7 dias
+        unique_id: stacklog_semana
+        icon: mdi:calendar-check
+        unit_of_measurement: tarefas
+        value_template: "{{ value_json.done_count }}"
+      - name: Stacklog observacoes
+        unique_id: stacklog_observacoes
+        icon: mdi:note-text-outline
+        unit_of_measurement: tarefas
+        value_template: "{{ value_json.notes | length }}"
+  - resource: http://192.168.0.240:4100/api/projects
+    scan_interval: 300
+    sensor:
+      - name: Stacklog projetos ativos
+        unique_id: stacklog_projetos
+        icon: mdi:folder-multiple-outline
+        unit_of_measurement: projetos
+        value_template: "{{ value_json | selectattr('archived_at', 'none') | list | count }}"
+

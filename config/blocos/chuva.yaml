@@ -1,0 +1,24 @@
+  # Chuva nas proximas 2 horas (previsao horaria do weather.casa, a cada 20 min)
+  - trigger:
+      - trigger: time_pattern
+        minutes: "/20"
+      - trigger: homeassistant
+        event: start
+    action:
+      - action: weather.get_forecasts
+        target: {entity_id: weather.casa}
+        data: {type: hourly}
+        response_variable: prev
+    binary_sensor:
+      - name: Chuva chegando
+        unique_id: chuva_chegando
+        icon: mdi:weather-pouring
+        state: >-
+          {% set f = prev['weather.casa'].forecast[:3] %}
+          {{ (f | selectattr('precipitation', 'ge', 0.5) | list | count > 0)
+             or (f | selectattr('condition', 'in', ['pouring', 'lightning-rainy']) | list | count > 0) }}
+        attributes:
+          inicio: >-
+            {% set f = prev['weather.casa'].forecast[:3] | selectattr('precipitation', 'ge', 0.5) | list %}
+            {{ as_local(as_datetime(f[0].datetime)).strftime('%H:%M') if f else '' }}
+          mm_3h: "{{ prev['weather.casa'].forecast[:3] | sum(attribute='precipitation') | round(1) }}"
