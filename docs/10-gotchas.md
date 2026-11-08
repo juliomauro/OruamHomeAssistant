@@ -74,6 +74,7 @@ Problems that showed up during the build, with the cause and the fix.
 | `httpx.ConnectError` once in a while | No IPv6 egress in the container. Use `continue_on_error: true`, and the next attempt works |
 | Bot does not answer | The chat is not in `allowed_chat_ids`, or the `user_id` does not match the automation condition |
 | Button keeps "loading" | `telegram_bot.answer_callback_query` is missing |
+| Repair "The `target` parameter for Telegram Bot is being removed" | `target` is deprecated (removed in 2026.9). Use `chat_id` in `telegram_bot.send_message`, then open the repair and confirm |
 | Command not recognized in a group | Telegram sends `/status@bot_name`. Remove the suffix with `regex_replace('@.*', '')` |
 
 ## Security

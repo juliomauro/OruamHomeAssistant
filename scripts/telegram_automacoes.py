@@ -1,4 +1,5 @@
-# telegram_automacoes.py v1.3 (bom dia, servidores, chuva) - alertas e comandos da casa via Telegram (aparelho novo, porta, internet, observer, impressora, Deco)
+# telegram_automacoes.py v1.4 (target -> chat_id, removido no HA 2026.9; acrescenta_tg substitui o passo antigo)
+# v1.3 (bom dia, servidores, chuva) - alertas e comandos da casa via Telegram (aparelho novo, porta, internet, observer, impressora, Deco)
 # uso: python3 telegram_automacoes.py <token>  (roda no atlas)
 import os, json, sys, urllib.request
 T = sys.argv[1]; B = os.environ.get("HA_URL", "http://127.0.0.1:8123") + "/api"
@@ -23,7 +24,7 @@ AUTOS = {
                 "title": "Aparelho novo no Wi-Fi",
                 "message": "Apareceu **" + NOME + "** no Deco " + DECO + " em {{ now().strftime('%d/%m %H:%M') }}.\n\nEntidade: `{{ trigger.event.data.entity_id }}` (desligada por padrão)."}},
             {"action": "telegram_bot.send_message", "continue_on_error": True, "data": {
-                "config_entry_id": ENTRY, "target": CHAT, "parse_mode": "html",
+                "config_entry_id": ENTRY, "chat_id": CHAT, "parse_mode": "html",
                 "title": "📶 Aparelho novo no Wi-Fi",
                 "message": "<b>" + NOME + "</b>\nDeco " + DECO + " · {{ now().strftime('%d/%m %H:%M') }}\n\nVocê reconhece esse aparelho?",
                 "inline_keyboard": [
@@ -57,7 +58,7 @@ AUTOS = {
                      {"action": "telegram_bot.answer_callback_query", "data": {
                          "config_entry_id": ENTRY, "callback_query_id": "{{ trigger.event.data.id }}", "message": "Instruções abaixo"}},
                      {"action": "telegram_bot.send_message", "data": {
-                         "config_entry_id": ENTRY, "target": "{{ trigger.event.data.chat_id }}", "parse_mode": "html",
+                         "config_entry_id": ENTRY, "chat_id": "{{ trigger.event.data.chat_id }}", "parse_mode": "html",
                          "message": "🚫 <b>Bloquear {{ nome }}</b>\n\nApp <b>Deco</b> > <b>Clientes</b> > toque em <b>{{ nome }}</b> > <b>Bloquear</b>.\n\nDepois troque a senha do Wi-Fi se achar que alguém descobriu."}}]},
             ]},
         ],
@@ -65,9 +66,9 @@ AUTOS = {
 }
 def tg(msg, **kw):
     return {"action": "telegram_bot.send_message", "continue_on_error": True,
-            "data": {"config_entry_id": ENTRY, "target": kw.pop("target", CHAT), "parse_mode": "html", "message": msg, **kw}}
+            "data": {"config_entry_id": ENTRY, "chat_id": kw.pop("chat_id", CHAT), "parse_mode": "html", "message": msg, **kw}}
 def resp(msg, **kw):  # responde no chat de quem mandou o comando
-    return tg(msg, target="{{ trigger.event.data.chat_id }}", **kw)
+    return tg(msg, chat_id="{{ trigger.event.data.chat_id }}", **kw)
 
 LUZES = ["switch.sala_principal", "switch.sala_atelier", "switch.sala_mesa_de_jantar", "switch.sala_lateral", "switch.sala_balcao",
          "switch.sala_de_estar_led_da_escada_switch_1", "switch.escritorio_teto_switch_1", "switch.escritorio_led_escritorio_switch_1",
@@ -263,11 +264,14 @@ AUTOS["telegram_servidores"] = {
 }
 
 def acrescenta_tg(aid, step):
+    # poe o envio do Telegram no inicio da automacao; se ja existir, substitui (atualiza parametros)
     cfg = req("GET", f"/config/automation/config/{aid}")
-    if any(a.get("action") == "telegram_bot.send_message" for a in cfg["actions"]):
-        print(aid, "ja tem telegram"); return
-    cfg["actions"].insert(0, step)
-    print(aid, "+telegram", req("POST", f"/config/automation/config/{aid}", cfg))
+    idx = [i for i, a in enumerate(cfg["actions"]) if a.get("action") == "telegram_bot.send_message"]
+    if idx:
+        cfg["actions"][idx[0]] = step
+    else:
+        cfg["actions"].insert(0, step)
+    print(aid, "telegram", "substituido" if idx else "acrescentado", req("POST", f"/config/automation/config/{aid}", cfg))
 
 for aid, cfg in AUTOS.items():
     print(aid, req("POST", f"/config/automation/config/{aid}", {"id": aid, **cfg}))

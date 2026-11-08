@@ -18,13 +18,15 @@ O bot manda alertas da casa (aparelho novo no Wi-Fi, porta, internet, servidores
 6. Na integração, em **Adicionar chat permitido** (`allowed_chat_ids`), cadastre esse chat ID. O bot ignora mensagens de chats que não estão nessa lista.
 7. Anote o **entry_id** da integração. Ele aparece na URL da página da integração e em `GET /api/config/config_entries/entry`.
 
-Para enviar com botões, use `telegram_bot.send_message` com `config_entry_id` e `target`. O serviço `notify.<nome>` não aceita teclado.
+Para enviar com botões, use `telegram_bot.send_message` com `config_entry_id` e `chat_id`. O serviço `notify.<nome>` não aceita teclado.
+
+Não use o parâmetro antigo `target`: ele está obsoleto e para de funcionar no HA 2026.9. O HA mostra um reparo "The `target` parameter for Telegram Bot is being removed" para cada automação que ainda usa.
 
 ```yaml
 action: telegram_bot.send_message
 data:
   config_entry_id: SEU_CONFIG_ENTRY_ID
-  target: 123456789
+  chat_id: 123456789
   parse_mode: html
   message: "<b>Teste</b> do bot"
   inline_keyboard:
