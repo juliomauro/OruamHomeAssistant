@@ -89,7 +89,7 @@ Compare the modem's reservation table with its lease table:
 | Automation | Trigger |
 |---|---|
 | `wifi_aparelho_novo` (new Wi-Fi device) | Event `entity_registry_updated` with `action: create` and an `entity_id` matching `device_tracker\.(sala\|office)_deco_` |
-| `observer_wifi` | `binary_sensor.rede_observer` turns on, or stays off for 10 min |
+| `observer_wifi` | `binary_sensor.rede_observer` stays off for 2 h, or comes back after being off for 2 h or more |
 
 The Deco integration **does not fire a new client event**. But it creates a `device_tracker` only once per never seen MAC, and that creation is the "new device" signal. The new tracker starts disabled.
 

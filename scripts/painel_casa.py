@@ -1,4 +1,16 @@
-# painel_casa.py v3.11 (aba Rede: card do observer no Wi-Fi) - gera os comandos WebSocket do painel "Casa" do Home Assistant (abas por comodo)
+# painel_casa.py v3.24 (Mesh enxuto: resumo com 4 numeros por aparelho; tudo o mais em paginas de detalhes)
+# v3.23 (Mesh: ordem repetidor, pai, companion; estatisticas completas do repetidor e do companion; layout de Messages e das comparacoes)
+# v3.22 (Mesh dividido em abas: Mesh, Regiao, Capital, Exterior, Messages, Abroad chat; estatisticas completas por repetidora)
+# v3.21 (Mesh: REP-EXT1-D42F em Exterior, exterior, pelo CoreScope corescope2.example.org)
+# v3.20 (Rede: IP fixo da camera e do boreas, que o Deco nao informa)
+# v3.19 (Rede: quedas em verde/vermelho)
+# v3.18 (Rede: ping ao lado do speedtest)
+# v3.17 (Rede: lista do Deco Sala corrigida (atributo ip ausente quebrava o modo estrito), uma coluna por Deco, cards largos)
+# v3.16 (Servidores: servidores na linha de cima, servicos embaixo; Octopi sem grafico de rede)
+# v3.15 (Servidores: Octopi na 3a coluna, abaixo do Plex)
+# v3.14 (Servidores: secao Octopi, Raspberry do OctoPrint via Glances)
+# v3.13 (Servidores: trafego do Traefik via /metrics, cards largos)
+# v3.11 (aba Rede: card do observer no Wi-Fi) - gera os comandos WebSocket do painel "Casa" do Home Assistant (abas por comodo)
 # Uso: python3 painel_casa.py [--create] > cmds.json
 import json, sys
 
@@ -284,8 +296,8 @@ view_externo = {
 }
 
 # ---------- Servidores ----------
-def servidor(p, disco_nome, iface, extras):
-    return [
+def servidor(p, disco_nome, iface, extras, rede=True):
+    cards = [
         graf("CPU e temperatura", "mdi:cpu-64-bit", [
             {"entity": f"sensor.{p}_cpu", "name": "CPU", "color": "#4f8bf7"},
             {"entity": f"sensor.{p}_temperatura", "name": "Temperatura", "color": "#f2994a", "y_axis": "secondary"}]),
@@ -307,6 +319,7 @@ def servidor(p, disco_nome, iface, extras):
             {"entity": f"sensor.{p}_rede_download", "name": "Download", "color": "#27ae60"},
             {"entity": f"sensor.{p}_rede_upload", "name": "Upload", "color": "#9b51e0"}]),
     ]
+    return cards if rede else cards[:-1]
 
 atlas_extras = [tpl("Disco 4 TB",
                     "{{ states('sensor.atlas_4tb') }}% · {{ (states('sensor.atlas_4tb_livre') | float(0) / 1024) | round(2) }} TiB livres",
@@ -323,6 +336,21 @@ boreas_extras = [
         "mdi:vpn",
         "{{ 'green' if (states('sensor.boreas_tailscale_download') | float(0) + states('sensor.boreas_tailscale_upload') | float(0)) > 0.05 else 'grey' }}",
         half=False, entity="sensor.boreas_tailscale_download", tap_action={"action": "more-info"}),
+]
+OP = "escritorio_octoprint"
+octopi_extras = [
+    tpl("OctoPrint",
+        "{% set s = states('sensor.OP_current_state') %}{% if is_state('binary_sensor.OP_printing', 'on') %}imprimindo {{ states('sensor.OP_job_percentage') | int(0) }}% · {{ states('sensor.OP_current_file') }}{% elif s in ['unavailable', 'unknown'] %}impressora desligada{% else %}{{ s }}{% endif %}".replace("OP", OP),
+        "mdi:printer-3d-nozzle",
+        "{{ 'blue' if is_state('binary_sensor.OP_printing', 'on') else 'grey' if states('sensor.OP_current_state') in ['unavailable', 'unknown'] else 'green' }}".replace("OP", OP),
+        half=False, entity=f"sensor.{OP}_current_state", tap_action={"action": "url", "url_path": "https://3d.example.com/"}),
+    tpl("Carga", "{{ states('sensor.octopi_load') | float(0) | round(2) }} (média 5 min) · swap {{ states('sensor.octopi_swap') | float(0) | round(0) | int }}%",
+        "mdi:speedometer", "{% set x = states('sensor.octopi_load') | float(0) %}{{ 'red' if x > 4 else 'orange' if x > 2 else 'purple' }}",
+        entity="sensor.octopi_load", tap_action={"action": "more-info"}),
+    tpl("Wi-Fi",
+        "↓ {{ states('sensor.octopi_rede_download') | float(0) | round(2) }} · ↑ {{ states('sensor.octopi_rede_upload') | float(0) | round(2) }} Mbit/s",
+        "mdi:wifi", "{{ 'green' if is_state('device_tracker.wifi_octopi', 'home') else 'red' }}",
+        entity="sensor.octopi_rede_download", tap_action={"action": "more-info"}),
 ]
 pihole = [
     heading("Pi-hole", "mdi:pi-hole"),
@@ -372,6 +400,15 @@ traefik = [
         "mdi:certificate",
         "{% set d = (as_datetime(states('sensor.traefik_certificado')) - now()).days %}{{ 'green' if d > 25 else 'orange' if d > 10 else 'red' }}",
         half=False, entity="sensor.traefik_certificado", tap_action={"action": "more-info"}),
+    tpl("Tráfego hoje",
+        "{% set h = states('sensor.traefik_requisicoes_hoje') | int(0) %}{% set e4 = states('sensor.traefik_4xx_hoje') | int(0) %}{% set e5 = states('sensor.traefik_5xx_hoje') | int(0) %}{{ h }} req · {{ states('sensor.traefik_requisicoes_por_minuto') | float(0) | round(1) }}/min · 4xx {{ e4 }} · 5xx {{ e5 }}{% if h > 0 and e5 > 0 %} ({{ (100 * e5 / h) | round(1) }}%){% endif %}",
+        "mdi:swap-horizontal",
+        "{% set h = states('sensor.traefik_requisicoes_hoje') | int(0) %}{% set e5 = states('sensor.traefik_5xx_hoje') | int(0) %}{{ 'red' if h > 0 and e5 / h > 0.05 else 'orange' if e5 > 0 else 'blue' }}",
+        half=False, entity="sensor.traefik_requisicoes_hoje", tap_action={"action": "more-info"},
+        multiline_secondary=True, grid_options={"columns": 12}),
+    tpl("Por app (desde o último restart)", "{{ states('sensor.traefik_por_app') }}", "mdi:application-outline", "blue",
+        half=False, entity="sensor.traefik_por_app", multiline_secondary=True, grid_options={"columns": 12}),
+    graf("Requisições por minuto", "mdi:chart-line", [{"entity": "sensor.traefik_requisicoes_por_minuto", "name": "req/min"}], horas=24, pph=4),
 ]
 
 view_servidores = {
@@ -379,7 +416,7 @@ view_servidores = {
     "sections": [
         sec(heading("Atlas", "mdi:server"), *servidor("atlas", "Disco /DATA", "eth0", atlas_extras), *traefik),
         sec(heading("Boreas", "mdi:server-network"), *servidor("boreas", "Disco", "enp2s0", boreas_extras), *transmission),
-        sec(*pihole, *plex),
+        sec(heading("Octopi", "mdi:raspberry-pi"), *servidor("octopi", "Cartão SD", "wlan0", octopi_extras, rede=False), *pihole, *plex),
     ],
 }
 
@@ -406,9 +443,29 @@ mesh_companion = [
     tile("sensor.mesh_bateria", "Battery", "mdi:battery", "green"),
     tile("sensor.mesh_enviadas", "Sent", "mdi:send", "indigo"),
     tile("sensor.mesh_recebidas", "Received", "mdi:inbox-arrow-down", "indigo"),
+    tile("sensor.mesh_bateria_v", "Battery (V)", "mdi:battery-charging", "green"),
+    tile("sensor.mesh_temperatura", "Temperature", "mdi:thermometer", "red"),
+    tile("sensor.mesh_erros", "Errors", "mdi:alert-circle-outline", "orange"),
+    tile("sensor.mesh_ultima_entrega", "Last delivery", "mdi:truck-delivery", "grey"),
+    tile("sensor.mesh_rx_airtime", "RX airtime", "mdi:timer-sand", "teal"),
+    tile("sensor.mesh_tx_airtime", "TX airtime", "mdi:timer-sand-complete", "teal"),
+    tile("sensor.meshcore_c0ffee_recv_direct_casa_companion", "Received direct", "mdi:call-received", "indigo"),
+    tile("sensor.meshcore_c0ffee_recv_flood_casa_companion", "Received flood", "mdi:waves-arrow-left", "indigo"),
+    tile("sensor.meshcore_c0ffee_sent_direct_casa_companion", "Sent direct", "mdi:call-made", "blue"),
+    tile("sensor.meshcore_c0ffee_sent_flood_casa_companion", "Sent flood", "mdi:waves-arrow-right", "blue"),
+    tile("sensor.meshcore_c0ffee_node_count_casa_companion", "Known nodes", "mdi:account-multiple", "purple"),
+    tile("sensor.meshcore_c0ffee_tx_queue_len_casa_companion", "TX queue", "mdi:tray-full", "grey"),
+    tile("sensor.meshcore_c0ffee_rate_limiter_tokens_casa_companion", "Rate limiter", "mdi:speedometer-slow", "grey"),
+    tile("sensor.meshcore_c0ffee_companion_prefix", "Prefix", "mdi:pound", "grey"),
     graf("Signal", "mdi:signal", [
         {"entity": "sensor.mesh_rssi", "name": "RSSI", "color": "#2d9cdb"},
         {"entity": "sensor.mesh_snr", "name": "SNR", "color": "#27ae60", "y_axis": "secondary"}], horas=24),
+    graf("Battery and temperature", "mdi:battery-heart-variant", [
+        {"entity": "sensor.mesh_bateria_v", "name": "Battery (V)", "color": "#27ae60"},
+        {"entity": "sensor.mesh_temperatura", "name": "Temperature", "color": "#eb5757", "y_axis": "secondary"}], horas=48),
+    graf("Traffic", "mdi:swap-vertical", [
+        {"entity": "sensor.mesh_enviadas", "name": "Sent", "color": "#2d9cdb"},
+        {"entity": "sensor.mesh_recebidas", "name": "Received", "color": "#9b51e0"}], horas=48),
 ]
 
 mesh_repetidor = [
@@ -436,9 +493,33 @@ mesh_repetidor = [
     tile("sensor.repetidor_recebidas", "Received", "mdi:inbox-arrow-down", "indigo"),
     tile("sensor.repetidor_erros", "Receive errors", "mdi:alert-circle-outline", "orange"),
     tile("sensor.repetidor_dup_flood", "Flood duplicates", "mdi:content-duplicate", "grey"),
+    tile("sensor.repetidor_rssi", "RSSI", "mdi:signal", "teal"),
+    tile("sensor.repetidor_snr", "SNR", "mdi:signal-variant", "teal"),
+    tile("sensor.repetidor_bateria", "Battery", "mdi:battery", "green"),
+    tile("sensor.repetidor_temperatura", "Temperature", "mdi:thermometer", "red"),
+    tile("sensor.repetidor_airtime", "Airtime", "mdi:timer-sand", "teal"),
+    tile("sensor.repetidor_uso_airtime", "Airtime use", "mdi:percent", "teal"),
+    tile("sensor.meshcore_438702360c_rx_airtime_utilization_rep_casa_4387", "RX airtime use", "mdi:percent-outline", "teal"),
+    tile("sensor.repetidor_fila_cheia", "Queue full", "mdi:tray-alert", "orange"),
+    tile("sensor.meshcore_438702360c_tx_queue_len_rep_casa_4387", "TX queue", "mdi:tray-full", "grey"),
+    tile("sensor.meshcore_438702360c_recv_direct_rep_casa_4387", "Received direct", "mdi:call-received", "indigo"),
+    tile("sensor.meshcore_438702360c_recv_flood_rep_casa_4387", "Received flood", "mdi:waves-arrow-left", "indigo"),
+    tile("sensor.meshcore_438702360c_sent_direct_rep_casa_4387", "Sent direct", "mdi:call-made", "blue"),
+    tile("sensor.meshcore_438702360c_sent_flood_rep_casa_4387", "Sent flood", "mdi:waves-arrow-right", "blue"),
+    tile("sensor.meshcore_438702360c_direct_dups_rep_casa_4387", "Direct duplicates", "mdi:content-duplicate", "grey"),
+    tile("sensor.meshcore_438702360c_out_path_len_rep_casa_4387", "Path to me", "mdi:transit-connection-variant", "purple"),
+    tile("sensor.repetidor_sucessos", "Polls OK", "mdi:check-circle-outline", "green"),
+    tile("sensor.repetidor_falhas", "Polls failed", "mdi:close-circle-outline", "red"),
     graf("Battery and temperature", "mdi:battery-heart-variant", [
         {"entity": "sensor.repetidor_bateria_v", "name": "Battery (V)", "color": "#27ae60"},
         {"entity": "sensor.repetidor_temperatura", "name": "Temperature", "color": "#eb5757", "y_axis": "secondary"}], horas=48),
+    graf("Traffic rate (msg/min)", "mdi:chart-line", [
+        {"entity": "sensor.meshcore_438702360c_nb_recv_rate_rep_casa_4387", "name": "Received", "color": "#9b51e0"},
+        {"entity": "sensor.meshcore_438702360c_nb_sent_rate_rep_casa_4387", "name": "Sent", "color": "#2d9cdb"},
+        {"entity": "sensor.meshcore_438702360c_recv_errors_rate_rep_casa_4387", "name": "Errors", "color": "#eb5757"}], horas=48),
+    graf("Signal", "mdi:signal", [
+        {"entity": "sensor.repetidor_rssi", "name": "RSSI", "color": "#2d9cdb"},
+        {"entity": "sensor.repetidor_snr", "name": "SNR", "color": "#27ae60", "y_axis": "secondary"}], horas=48),
 ]
 
 mesh_enviar = {"type": "custom:mushroom-template-card", "primary": "Send", "icon": "mdi:send",
@@ -469,8 +550,6 @@ mesh_mensagens = [
     mesh_enviar,
     heading("Latest messages", "mdi:history"),
     mesh_lista,
-    heading("Public channel · whole network (CoreScope)", "mdi:forum"),
-    mesh_public,
 ]
 
 # ---------- CoreScope (comunidade) ----------
@@ -483,11 +562,11 @@ def cs_cor(e):
     return ("{% set t = state_attr('E', 'last_relayed') %}{% set h = ((now() - as_datetime(t)).total_seconds() / 3600) if t else 999 %}"
             "{{ 'green' if h < 3 else 'orange' if h < 24 else 'red' }}").replace("E", e)
 
-def cs_no(e, nome, half=False):
+def cs_no(e, nome, half=False, url="https://corescope.example.org/"):
     sec_ = ("{{ states('E') }} relays/24h · {{ state_attr('E', 'relay_count_1h') }}/1h · grade {{ state_attr('E', 'usefulness_grade') }}"
             " · last relay " + cs_idade("last_relayed") + " ago").replace("E", e)
     return tpl(nome, sec_, "mdi:radio-tower", cs_cor(e), half=half, entity=e,
-               tap_action={"action": "url", "url_path": "https://corescope.example.org/"})
+               tap_action={"action": "url", "url_path": url})
 
 def cs_relogio(slug):
     e = "sensor.corescope_" + slug + "_relogio"
@@ -499,63 +578,205 @@ def cs_disp_cor(slug):
     return ("{% set d = states('sensor.corescope_" + slug + "_disponibilidade') | float(0) %}"
             "{{ 'green' if d >= 90 else 'orange' if d >= 50 else 'red' }}")
 
-D_AMIGO = "sensor.corescope_amigo_disponibilidade"
-cs_amigo_extra = [
-    tpl("Availability (7 days)", "{{ states('" + D_AMIGO + "') }}% of hours with traffic", "mdi:percent-circle", cs_disp_cor("amigo")),
-    tpl("Signal", "grade {{ state_attr('" + D_AMIGO + "', 'signalGrade') }} · mean SNR {{ state_attr('" + D_AMIGO + "', 'snrMean') }} dB", "mdi:signal", "teal"),
-    tpl("Packets per day", "{{ state_attr('" + D_AMIGO + "', 'avgPacketsPerDay') }} on average (7 days)", "mdi:chart-bar", "indigo"),
-    tpl("Longest silence", "{{ ((state_attr('" + D_AMIGO + "', 'longestSilenceMs') | float(0)) / 3600000) | round(0) | int }} h without being heard", "mdi:volume-off", "grey"),
-    tpl("Clock", cs_relogio("amigo"), "mdi:clock-alert-outline",
-        "{{ 'green' if state_attr('sensor.corescope_amigo_relogio', 'severity') == 'ok' else 'orange' }}", half=False),
-    {"type": "markdown", "content": (
-        "**Direct neighbors ({{ states('sensor.corescope_amigo_vizinhos') }})**\n\n| Repeater | Distance | SNR | Count | Last seen |\n|---|---|---|---|---|\n"
-        "{% for n in (state_attr('sensor.corescope_amigo_vizinhos', 'neighbors') or []) | sort(attribute='count', reverse=true) %}"
-        "| {{ n.name }} | {{ n.distance_km | default(0) | round(1) }} km | {{ n.avg_snr | round(1) }} | {{ n.count }} | {{ as_timestamp(n.last_seen) | timestamp_custom('%d/%m %H:%M') }} |\n{% endfor %}")},
+CS_BR = "https://corescope.example.org/"
+CS_SE = "https://corescope2.example.org/#/live"
+
+def cs_full(slug, nome, url=CS_BR, titulo=None, icon="mdi:radio-tower", cor="#2d9cdb"):
+    # todas as estatisticas do CoreScope para uma repetidora (no, analytics 7 dias, relogio, health, vizinhos)
+    E = "sensor.corescope_" + slug; D = E + "_disponibilidade"; O = E + "_observers"; V = E + "_vizinhos"; R = E + "_relogio"
+    visto = ("{% set a = [state_attr('E', 'last_heard'), state_attr('E', 'last_relayed')] | reject('none') | list %}"
+             "{% set t = a | max if a else none %}{% set h = ((now() - as_datetime(t)).total_seconds() / 3600) if t else 999 %}").replace("E", E)
+    cards = [
+        cs_no(E, nome, url=url),
+        tpl("Seen by the network",
+            visto + "{% if t %}last heard {{ (h * 60) | int ~ ' min' if h < 1 else (h | int ~ ' h' if h < 48 else (h / 24) | int ~ ' days') }} ago{% else %}never heard{% endif %}"
+            " · by {{ states('" + O + "') }} observers · {{ (state_attr('" + O + "', 'stats') or {}).packetsToday | default(0) }} pkts today",
+            "mdi:ear-hearing", visto + "{{ 'green' if h < 1 else 'orange' if h < 24 else 'red' }}", half=False, entity=E,
+            tap_action={"action": "url", "url_path": url}),
+        tpl("Availability (7 days)", "{{ states('" + D + "') }}% of hours with traffic", "mdi:percent-circle", cs_disp_cor(slug)),
+        tpl("Signal", "grade {{ state_attr('" + D + "', 'signalGrade') }} · SNR {{ state_attr('" + D + "', 'snrMean') | float(0) | round(1) }} ± {{ state_attr('" + D + "', 'snrStdDev') | float(0) | round(1) }} dB", "mdi:signal", "teal"),
+        tpl("Packets per day", "{{ state_attr('" + D + "', 'avgPacketsPerDay') | float(0) | round(0) | int }} on average · {{ state_attr('" + D + "', 'totalPackets') }} in 7 days", "mdi:chart-bar", "indigo"),
+        tpl("Longest silence", "{{ ((state_attr('" + D + "', 'longestSilenceMs') | float(0)) / 3600000) | round(1) }} h without being heard", "mdi:volume-off", "grey"),
+        tpl("Clock", cs_relogio(slug), "mdi:clock-alert-outline",
+            "{{ 'green' if state_attr('" + R + "', 'severity') == 'ok' else 'orange' }}"),
+        tpl("Average hops", "{{ (state_attr('" + O + "', 'stats') or {}).avgHops | default('-') }} hops to the observers", "mdi:transit-connection-variant", "purple"),
+        tpl("Relayed", "{{ state_attr('" + D + "', 'relayPct') | float(0) | round(0) | int }}% of packets · {{ state_attr('" + E + "', 'relay_count_1h') | default(0) }} in the last hour", "mdi:swap-horizontal", "blue"),
+        tpl("Adverts", "{{ state_attr('" + E + "', 'advert_count') | default('-') }} total · {{ state_attr('" + E + "', 'flood_advert_count_7d') | default('-') }} flood in 7 days", "mdi:bullhorn", "amber"),
+        tpl("Role in the network",
+            "usefulness {{ state_attr('E', 'usefulness_score') | float(0) | round(2) }} · coverage {{ state_attr('E', 'coverage_score') | float(0) | round(2) }}"
+            " · bridge {{ state_attr('E', 'bridge_score') | float(0) | round(2) }} · redundancy {{ state_attr('E', 'redundancy_score') | float(0) | round(2) }}"
+            " · traffic share {{ state_attr('E', 'traffic_share_score') | float(0) | round(2) }}".replace("E", E),
+            "mdi:star-four-points-circle", "purple", half=False),
+        tpl("Node",
+            "first seen {{ as_timestamp(state_attr('E', 'first_seen')) | timestamp_custom('%d/%m/%Y') if state_attr('E', 'first_seen') else '-' }}"
+            "{% if state_attr('E', 'battery_mv') %} · battery {{ (state_attr('E', 'battery_mv') / 1000) | round(2) }} V{% endif %}"
+            "{% if state_attr('E', 'temperature_c') is not none %} · {{ state_attr('E', 'temperature_c') }} °C{% endif %}".replace("E", E),
+            "mdi:information-outline", "grey", half=False),
+        {"type": "markdown", "content": (
+            "**Direct neighbors ({{ states('" + V + "') }})**\n\n| Node | Dist. | SNR | Count | Last seen |\n|---|---|---|---|---|\n"
+            "{% for n in ((state_attr('" + V + "', 'neighbors') or []) | sort(attribute='count', reverse=true))[:12] %}"
+            "| {{ n.name or n.prefix }} | {{ (n.distance_km | float(0) | round(1) ~ ' km') if n.distance_km is defined and n.distance_km is not none else '-' }} "
+            "| {{ (n.avg_snr | float(0) | round(1)) if n.avg_snr is defined and n.avg_snr is not none else '-' }} | {{ n.count | default('-') }} "
+            "| {{ as_timestamp(n.last_seen) | timestamp_custom('%d/%m %H:%M') if n.last_seen is defined and n.last_seen else '-' }} |\n{% endfor %}")},
+        {"type": "markdown", "content": (
+            "**Heard by ({{ states('" + O + "') }} observers)**\n\n| Observer | RSSI | SNR | Packets |\n|---|---|---|---|\n"
+            "{% for o in ((state_attr('" + O + "', 'observers') or []) | sort(attribute='packetCount', reverse=true))[:12] %}"
+            "| {{ o.observer_name }} | {{ o.avgRssi | float(0) | round(0) | int }} | {{ o.avgSnr | float(0) | round(1) }} | {{ o.packetCount }} |\n{% endfor %}")},
+        graf("Relays per 24h", "mdi:chart-line", [{"entity": E, "name": nome.split("-")[1].title() if "-" in nome else nome, "color": cor}], horas=168),
+    ]
+    for c in cards:
+        if c.get("type") == "custom:mushroom-template-card":
+            c["grid_options"] = {"columns": 12}; c["multiline_secondary"] = True
+    return [heading(titulo or nome, icon)] + cards
+
+def cs_tabela(nos):
+    # nos: [(slug, rotulo)]
+    linha = ("| {nome} | {{{{ states('sensor.corescope_S') }}}} | {{{{ states('sensor.corescope_S_disponibilidade') }}}}% "
+             "| {{{{ state_attr('sensor.corescope_S_disponibilidade', 'signalGrade') }}}} | {{{{ state_attr('sensor.corescope_S_disponibilidade', 'snrMean') | float(0) | round(1) }}}} "
+             "| {{{{ state_attr('sensor.corescope_S_disponibilidade', 'avgPacketsPerDay') | float(0) | round(0) | int }}}} "
+             "| {{{{ states('sensor.corescope_S_observers') }}}} | {{{{ states('sensor.corescope_S_vizinhos') }}}} | REL |\n")
+    return {"type": "markdown", "content": (
+        "**Comparison**\n\n| | Relays 24h | Avail. 7d | Signal | SNR | Pkts/day | Observers | Neighbors | Clock |\n|---|---|---|---|---|---|---|---|---|\n" +
+        "".join(linha.format(nome=r).replace("REL", cs_relogio(s)).replace("_S_", "_" + s + "_").replace("corescope_S'", "corescope_" + s + "'")
+                for s, r in nos) +
+        "\n**Most frequent neighbor**\n\n" + "".join("- " + r + ": {{ states('sensor.corescope_" + s + "_melhor_vizinho') }}\n" for s, r in nos))}
+
+def canal_md(e, site):
+    return {"type": "markdown", "content": (
+        "{% set l = state_attr('" + e + "', 'messages') or [] %}"
+        "{% if not l %}_No data from CoreScope._{% else %}"
+        "| Time | From | Message | Hops |\n|---|---|---|---|\n"
+        "{% for m in l | reverse %}| {{ as_timestamp(m.timestamp) | timestamp_custom('%d/%m %H:%M') }} "
+        "| {{ (m.sender or '?') | replace('|', '/') }} | {{ (m.text or '') | replace('|', '/') | replace('\\n', ' ') }} | {{ m.hops }} |\n{% endfor %}"
+        "\n<sub>{{ state_attr('" + e + "', 'total') }} messages captured · " + site + " · every 2 min</sub>{% endif %}")}
+
+def regiao(titulo, path, icon, nos, url, cores):
+    # nos: [(slug, nome, rotulo)] -> (aba resumida, subview com tudo)
+    tabela = cs_tabela([(s, r) for s, n, r in nos]); tabela["grid_options"] = {"columns": 24}
+    g = graf("Relays per 24h (7 days)", "mdi:chart-line", [{"entity": "sensor.corescope_" + s, "name": r} for s, n, r in nos], horas=168)
+    g["grid_options"] = {"columns": 24}
+    tab = sec(heading(titulo + " · comparison", icon), tabela, g)
+    tab["column_span"] = 4
+    resumo = {"title": titulo, "path": path, "icon": icon, "type": "sections", "max_columns": 4,
+              "sections": [tab] + [sec(*resumo_cs(s, n, url, grafico=False, det=path + "-details")) for s, n, r in nos]}
+    det = {"title": titulo + " · details", "path": path + "-details", "icon": icon, "type": "sections", "max_columns": 4,
+           "subview": True, "back_path": "/painel-casa/" + path,
+           "sections": [sec(*cs_full(s, n, url, icon="mdi:radio-tower", cor=cores[i % len(cores)])) for i, (s, n, r) in enumerate(nos)]}
+    return resumo, det
+
+CORES = ["#2d9cdb", "#27ae60", "#eb5757", "#9b51e0", "#f2994a"]
+NOS_JUN = [("reg_norte", "REP-NORTE-E28A", "Norte"), ("reg_sul", "REP-SUL-786A", "Sul"),
+           ("reg_leste", "REP-LESTE-8A98", "Leste"), ("reg_oeste", "REP-OESTE-E0BD", "Oeste")]
+NOS_CAP = [("cap_1", "REP-CAP1-6507", "Cap 1"), ("cap_2", "REP-CAP2-BA1D", "Cap 2"),
+          ("cap_3", "REP-CAP3-94EF", "Cap 3"), ("cap_4", "REP-CAP4-B8F7", "Cap 4")]
+NOS_EXT = [("ext_1", "REP-EXT1-D42F", "Ext 1"), ("ext_2", "REP-EXT2-9EA5", "Ext 2"),
+           ("ext_3", "REP-EXT3-E887", "Ext 3"), ("ext_4", "REP-EXT4-8430", "Ext 4"),
+           ("ext_5", "REP-EXT5-81A5", "Ext 5")]
+
+# ---------- Resumo enxuto (abas) + detalhes completos (subviews) ----------
+def kpi(valor, rotulo, icon, color, **kw):
+    # numero grande em cima, rotulo embaixo, 4 por linha
+    return {"type": "custom:mushroom-template-card", "primary": valor, "secondary": rotulo, "icon": icon,
+            "color": color, "layout": "vertical", "grid_options": {"columns": 3}, **kw}
+
+def linha(primary, secondary, icon, color, **kw):
+    c = tpl(primary, secondary, icon, color, half=False, **kw)
+    c["grid_options"] = {"columns": 12}
+    return c
+
+def detalhes(path, texto="All details"):
+    return {"type": "custom:mushroom-template-card", "primary": texto, "icon": "mdi:chevron-right",
+            "color": "grey", "grid_options": {"columns": 12},
+            "tap_action": {"action": "navigate", "navigation_path": "/painel-casa/" + path},
+            "card_mod": {"style": "ha-card { background: none; box-shadow: none; border: none; }"}}
+
+def num(e, casas=0, unid=""):
+    f = "| float(0) | round(" + str(casas) + ")" + (" | int" if casas == 0 else "")
+    return "{{ states('" + e + "') " + f + " }}" + unid
+
+R4 = "sensor.meshcore_438702360c_"; R4S = "_rep_casa_4387"
+resumo_repetidor = [
+    heading("REP-CASA-4387", "mdi:radio-tower"),
+    mesh_repetidor[1],
+    kpi(num("sensor.repetidor_bateria", 0, "%"), "Battery", "mdi:battery", "green"),
+    kpi(num("sensor.repetidor_temperatura", 0, " °C"), "Temp", "mdi:thermometer", "red"),
+    kpi(num("sensor.repetidor_snr", 1), "SNR", "mdi:signal-variant", "teal"),
+    kpi("{{ states('sensor.repetidor_vizinhos') }}", "Neighbors", "mdi:account-group", "purple"),
+    linha("Traffic", "{{ states('sensor.repetidor_enviadas') }} sent · {{ states('sensor.repetidor_recebidas') }} received"
+          " · {{ states('sensor.repetidor_erros') }} errors · airtime {{ states('sensor.repetidor_uso_airtime') }}%",
+          "mdi:swap-vertical", "indigo"),
+    mesh_repetidor[3],
+    linha("Seen by the network",
+          "{{ states('sensor.corescope_meu_repetidor_disponibilidade') }}% available (7d) · heard by {{ states('sensor.corescope_meu_repetidor_observers') }} observers"
+          " · clock " + cs_relogio("meu_repetidor"),
+          "mdi:web", cs_disp_cor("meu_repetidor"), tap_action={"action": "url", "url_path": CS_BR}),
+    graf("Traffic (48 h)", "mdi:chart-line", [
+        {"entity": R4 + "nb_recv_rate" + R4S, "name": "Received", "color": "#9b51e0"},
+        {"entity": R4 + "nb_sent_rate" + R4S, "name": "Sent", "color": "#2d9cdb"}], horas=48),
+    detalhes("mesh-details"),
 ]
+for _c in (mesh_repetidor[1], mesh_repetidor[2], mesh_repetidor[3], mesh_companion[1], mesh_companion[2]):
+    _c["grid_options"] = {"columns": 12}
 
-CS_REG_SLUGS = [("reg_norte", "Norte"), ("reg_sul", "Sul"),
-                ("reg_leste", "Leste"), ("reg_oeste", "Oeste")]
-cs_tabela_jun = {"type": "markdown", "content": (
-    "**Comparison (7 days)**\n\n| | Avail. | Signal | SNR | Pkts/day | Neighbors | Clock |\n|---|---|---|---|---|---|---|\n" + "".join(
-        ("| {nome} | {{{{ states('sensor.corescope_S_disponibilidade') }}}}% | {{{{ state_attr('sensor.corescope_S_disponibilidade', 'signalGrade') }}}} "
-         "| {{{{ state_attr('sensor.corescope_S_disponibilidade', 'snrMean') }}}} | {{{{ state_attr('sensor.corescope_S_disponibilidade', 'avgPacketsPerDay') | round(0) | int }}}} "
-         "| {{{{ states('sensor.corescope_S_vizinhos') }}}} | REL |\n").format(nome=nome).replace("REL", cs_relogio(s)).replace("_S_", "_" + s + "_")
-        for s, nome in CS_REG_SLUGS) +
-    "\n**Most frequent neighbor**\n\n" + "".join(
-        "- " + nome + ": {{ states('sensor.corescope_" + s + "_melhor_vizinho') }}\n" for s, nome in CS_REG_SLUGS))}
+def resumo_cs(slug, nome, url=CS_BR, titulo=None, icon="mdi:radio-tower", cor="#2d9cdb", det=None, grafico=True):
+    E = "sensor.corescope_" + slug; D = E + "_disponibilidade"; O = E + "_observers"; R = E + "_relogio"
+    cards = [heading(titulo or nome, icon), cs_no(E, nome, url=url),
+             kpi("{{ states('" + D + "') | float(0) | round(0) | int }}%", "Avail. 7d", "mdi:percent-circle", cs_disp_cor(slug)),
+             kpi("{{ state_attr('" + D + "', 'signalGrade') or '-' }}", "Signal", "mdi:signal", "teal"),
+             kpi("{{ states('" + O + "') }}", "Observers", "mdi:ear-hearing", "blue"),
+             kpi("{% set s = state_attr('" + R + "', 'severity') %}{{ {'ok': 'OK', 'no_clock': 'Not set', 'bimodal_clock': 'Unstable'}.get(s, 'Off') }}", "Clock", "mdi:clock-outline",
+                 "{{ 'green' if state_attr('" + R + "', 'severity') == 'ok' else 'orange' }}"),
+             linha("Best neighbor", "{{ states('" + E + "_melhor_vizinho') }} · {{ states('" + E + "_vizinhos') }} neighbors", "mdi:star-circle", "purple")]
+    cards[1]["grid_options"] = {"columns": 12}; cards[1]["multiline_secondary"] = True
+    if grafico:
+        cards.append(graf("Relays per 24h", "mdi:chart-line", [{"entity": E, "name": nome, "color": cor}], horas=168))
+    if det:
+        cards.append(detalhes(det))
+    return cards
 
-CS_AMIGO = "sensor.corescope_amigo"
-CS_OBS = "sensor.corescope_amigo_observers"
-cs_amigo = [
-    heading("A friend's repeater (CoreScope)", "mdi:account-heart"),
-    cs_no(CS_AMIGO, "REP-AMIGO-07C8"),
-    tpl("Seen by the network (CoreScope)", "{% set a = [state_attr('sensor.corescope_amigo', 'last_heard'), state_attr('sensor.corescope_amigo', 'last_relayed')] | reject('none') | list %}{% set t = a | max if a else none %}{% set h = ((now() - as_datetime(t)).total_seconds() / 3600) if t else 999 %}{% if t %}last heard {{ (h * 60) | int ~ ' min' if h < 1 else (h | int ~ ' h' if h < 48 else (h / 24) | int ~ ' days') }} ago{% else %}never heard{% endif %} · by {{ states('sensor.corescope_amigo_observers') }} observers · {{ (state_attr('sensor.corescope_amigo_observers', 'stats') or {}).packetsToday | default(0) }} pkts today", "mdi:ear-hearing", "{% set a = [state_attr('sensor.corescope_amigo', 'last_heard'), state_attr('sensor.corescope_amigo', 'last_relayed')] | reject('none') | list %}{% set t = a | max if a else none %}{% set h = ((now() - as_datetime(t)).total_seconds() / 3600) if t else 999 %}{{ 'green' if h < 1 else 'orange' if h < 24 else 'red' }}", half=False, entity="sensor.corescope_amigo",
-        tap_action={"action": "url", "url_path": "https://corescope.example.org/"}),
-    *cs_amigo_extra,
-    tpl("Last advert", (cs_idade("last_heard") + " ago").replace("E", CS_AMIGO), "mdi:bullhorn", "blue"),
-    tpl("Average hops", "{{ state_attr('" + CS_OBS + "', 'stats').avgHops | default('-') }} hops to the observers", "mdi:transit-connection-variant", "purple"),
-    {"type": "markdown", "content": (
-        "**Heard by ({{ states('" + CS_OBS + "') }} observers)**\n\n| Observer | RSSI | SNR | Packets |\n|---|---|---|---|\n"
-        "{% for o in (state_attr('" + CS_OBS + "', 'observers') or []) | sort(attribute='packetCount', reverse=true) %}"
-        "| {{ o.observer_name }} | {{ o.avgRssi | round(0) | int }} | {{ o.avgSnr | round(1) }} | {{ o.packetCount }} |\n{% endfor %}")},
-    graf("Relays per 24h", "mdi:chart-line", [{"entity": CS_AMIGO, "name": "Friend", "color": "#eb5757"}], horas=168),
-]
-
-CS_JUN = [("sensor.corescope_reg_norte", "REP-NORTE-E28A"),
-          ("sensor.corescope_reg_sul", "REP-SUL-786A"),
-          ("sensor.corescope_reg_leste", "REP-LESTE-8A98"),
-          ("sensor.corescope_reg_oeste", "REP-OESTE-E0BD")]
-cs_regiao = [
-    heading("Region (CoreScope)", "mdi:map-marker-radius"),
-    *[cs_no(e, n) for e, n in CS_JUN],
-    cs_tabela_jun,
-    graf("Relays per 24h", "mdi:chart-line", [
-        {"entity": e, "name": n.split("-")[1].title()} for e, n in CS_JUN], horas=168),
+resumo_companion = [
+    heading("Casa-Companion (companion)", "mdi:radio-handheld"),
+    mesh_companion[1],
+    kpi(num("sensor.mesh_bateria", 0, "%"), "Battery", "mdi:battery", "green"),
+    kpi(num("sensor.mesh_temperatura", 0, " °C"), "Temp", "mdi:thermometer", "red"),
+    kpi(num("sensor.mesh_snr", 1), "SNR", "mdi:signal-variant", "teal"),
+    kpi("{{ states('sensor.meshcore_c0ffee_node_count_casa_companion') }}", "Nodes", "mdi:account-multiple", "purple"),
+    linha("Traffic", "{{ states('sensor.mesh_enviadas') }} sent · {{ states('sensor.mesh_recebidas') }} received · {{ states('sensor.mesh_erros') }} errors",
+          "mdi:swap-vertical", "indigo"),
+    mesh_companion[2],
+    graf("Signal (24 h)", "mdi:signal", [
+        {"entity": "sensor.mesh_rssi", "name": "RSSI", "color": "#2d9cdb"},
+        {"entity": "sensor.mesh_snr", "name": "SNR", "color": "#27ae60", "y_axis": "secondary"}], horas=24),
+    detalhes("mesh-details"),
 ]
 
 view_mesh = {
     "title": "Mesh", "path": "mesh", "icon": "mdi:access-point-network", "type": "sections", "max_columns": 3,
-    "sections": [sec(*mesh_companion, *cs_amigo), sec(*mesh_repetidor, *cs_regiao), sec(*mesh_mensagens)],
+    "sections": [sec(*resumo_repetidor),
+                 sec(*resumo_cs("amigo", "REP-AMIGO-07C8", titulo="A friend's repeater", icon="mdi:account-heart", cor="#eb5757", det="mesh-details")),
+                 sec(*resumo_companion)],
+}
+view_mesh_det = {
+    "title": "Mesh · details", "path": "mesh-details", "icon": "mdi:access-point-network", "type": "sections", "max_columns": 3,
+    "subview": True, "back_path": "/painel-casa/mesh",
+    "sections": [sec(*mesh_repetidor, *cs_full("meu_repetidor", "REP-CASA-4387", titulo="REP-CASA-4387 · seen by the network (CoreScope)", icon="mdi:web", cor="#27ae60")),
+                 sec(*cs_full("amigo", "REP-AMIGO-07C8", titulo="A friend's repeater (CoreScope)", icon="mdi:account-heart", cor="#eb5757")),
+                 sec(*mesh_companion)],
+}
+view_mesh_jun, view_mesh_jun_det = regiao("da região", "mesh-regiao", "mdi:map-marker-radius", NOS_JUN, CS_BR, CORES)
+view_mesh_sp, view_mesh_sp_det = regiao("Capital", "mesh-sp", "mdi:city", NOS_CAP, CS_BR, CORES)
+view_mesh_kam, view_mesh_kam_det = regiao("Exterior", "mesh-exterior", "mdi:airplane", NOS_EXT, CS_SE, CORES)
+_pub = sec(heading("Public channel · whole network (CoreScope)", "mdi:forum"), canal_md("sensor.corescope_canal_public", "corescope.example.org"))
+_pub["column_span"] = 2
+for _c in _pub["cards"]: _c["grid_options"] = {"columns": "full"}
+view_mesh_msg = {
+    "title": "Messages", "path": "mesh-messages", "icon": "mdi:message-text", "type": "sections", "max_columns": 3,
+    "sections": [sec(*mesh_mensagens), _pub],
+}
+view_mesh_se = {
+    "title": "Abroad chat", "path": "mesh-abroad", "icon": "mdi:forum", "type": "sections", "max_columns": 2,
+    "sections": [sec(heading("#exterior · Abroad (corescope2.example.org)", "mdi:pound"), canal_md("sensor.corescope_canal_ext_local", "corescope2.example.org")),
+                 sec(heading("Public · Abroad (corescope2.example.org)", "mdi:forum"), canal_md("sensor.corescope_canal_ext_public", "corescope2.example.org"))],
 }
 
 # ---------- Rede (internet da operadora + Wi-Fi mesh Deco) ----------
@@ -570,13 +791,13 @@ rede_internet = [
         "mdi:web",
         "{% if not is_state('binary_sensor.rede_modem', 'on') or not " + NET_ON + " %}red"
         "{% elif states('sensor.rede_cloudflare_perda') | float(0) > 5 or states('sensor.rede_cloudflare_latencia') | float(0) > 80 %}orange{% else %}green{% endif %}",
-        half=False, entity="binary_sensor.rede_cloudflare", tap_action={"action": "more-info"}),
+        half=False, entity="binary_sensor.rede_cloudflare", tap_action={"action": "more-info"}, grid_options={"columns": 12}),
     tpl("IP público", "{{ states('sensor.internet_ip_publico') }} · desde {{ as_local(states.sensor.internet_ip_publico.last_changed).strftime('%d/%m %H:%M') }}",
-        "mdi:ip-network", "blue", half=False, entity="sensor.internet_ip_publico", tap_action={"action": "more-info"}),
-    tile("sensor.internet_download", "Download", "mdi:download", "green", 4),
-    tile("sensor.internet_upload", "Upload", "mdi:upload", "purple", 4),
-    tile("sensor.internet_ping", "Ping", "mdi:timer-outline", "teal", 4),
-    tpl("Rodar speedtest agora", "Leva uns 30 segundos", "mdi:speedometer", "indigo", half=False,
+        "mdi:ip-network", "blue", half=False, entity="sensor.internet_ip_publico", tap_action={"action": "more-info"}, grid_options={"columns": 12}),
+    tile("sensor.internet_download", "Download", "mdi:download", "green", 6),
+    tile("sensor.internet_upload", "Upload", "mdi:upload", "purple", 6),
+    tile("sensor.internet_ping", "Ping", "mdi:timer-outline", "teal", 6),
+    tpl("Rodar speedtest agora", "Leva uns 30 segundos", "mdi:speedometer", "indigo", half=True,
         tap_action={"action": "perform-action", "perform_action": "homeassistant.update_entity",
                     "target": {"entity_id": "sensor.internet_download"}}),
     graf("Velocidade (7 dias)", "mdi:chart-line", [
@@ -588,7 +809,7 @@ def lat(slug, nome, icon):
                "{{ states('sensor.rede_S_latencia') | float(0) | round(1) }} ms · jitter {{ states('sensor.rede_S_jitter') | float(0) | round(1) }} · perda {{ states('sensor.rede_S_perda') | float(0) | round(0) | int }}%".replace("S_", slug + "_"),
                icon,
                "{% if not is_state('binary_sensor.rede_S', 'on') %}red{% elif states('sensor.rede_S_perda') | float(0) > 5 %}orange{% else %}green{% endif %}".replace("S'", slug + "'").replace("S_", slug + "_"),
-               half=False, entity=f"sensor.rede_{slug}_latencia", tap_action={"action": "more-info"})
+               half=False, entity=f"sensor.rede_{slug}_latencia", tap_action={"action": "more-info"}, grid_options={"columns": 12})
 rede_latencia = [
     heading("Latência", "mdi:timer-sand"),
     lat("modem", "Modem da operadora (192.168.0.1)", "mdi:router-wireless"),
@@ -598,7 +819,11 @@ rede_latencia = [
         {"entity": "sensor.rede_modem_latencia", "name": "Modem", "color": "#4f8bf7"},
         {"entity": "sensor.rede_cloudflare_latencia", "name": "Cloudflare", "color": "#f2994a"},
         {"entity": "sensor.rede_google_latencia", "name": "Google", "color": "#27ae60"}], horas=24, pph=4),
+]
+rede_quedas = [
     {"type": "history-graph", "title": "Quedas (48 h)", "hours_to_show": 48,
+     "card_mod": {"style": "ha-card { --state-binary_sensor-connectivity-on-color: #27ae60; --state-binary_sensor-connectivity-off-color: #e5484d;"
+                           " --state-binary_sensor-on-color: #27ae60; --state-binary_sensor-off-color: #e5484d; --state-unavailable-color: #9e9e9e; }"},
      "entities": [{"entity": "binary_sensor.rede_modem", "name": "Modem"},
                   {"entity": "binary_sensor.rede_cloudflare", "name": "Cloudflare"},
                   {"entity": "binary_sensor.rede_google", "name": "Google"}]},
@@ -611,44 +836,48 @@ def deco_card(slug, nome, extra):
                "{% else %}OFFLINE{% endif %}".replace("S_", slug + "_").replace("X", extra),
                "mdi:router-wireless",
                "{{ 'green' if is_state('binary_sensor.deco_S_online', 'on') else 'red' }}".replace("S_", slug + "_"),
-               half=False, entity=f"device_tracker.deco_{slug}", tap_action={"action": "more-info"})
+               half=False, entity=f"device_tracker.deco_{slug}", tap_action={"action": "more-info"}, grid_options={"columns": 12})
 def clientes(deco):
     return {"type": "markdown", "title": f"Conectados no Deco {deco}", "content": (
         "{% set banda = {'band2_4': '2,4 GHz', 'band5': '5 GHz', 'wired': 'Cabo'} %}"
+        "{% set ip_fixo = {'wifi_camera_sala': '192.168.0.51', 'wifi_boreas': '192.168.0.241'} %}"
         "{% set l = states.device_tracker | selectattr('entity_id', 'match', 'device_tracker.wifi_') | selectattr('state', 'eq', 'home')"
         " | selectattr('attributes.deco_device', 'eq', 'D') | sort(attribute='attributes.friendly_name') | list %}"
         "{% if l %}| Aparelho | Conexão | IP | ↓ kB/s | ↑ kB/s |\n|---|---|---|---:|---:|\n"
         "{% for s in l %}{% set a = s.attributes %}"
-        "| {{ a.friendly_name | regex_replace('^(Sala|Office) Deco ', '') }} | {{ banda.get(a.connection_type, a.connection_type) }} | {{ a.ip or '-' }}"
-        " | {{ a.down_kilobytes_per_s | default(0) | round(1) }} | {{ a.up_kilobytes_per_s | default(0) | round(1) }} |\n"
+        "| {{ a.friendly_name | regex_replace('^(Sala|Office) Deco ', '') }} | {{ banda.get(a.get('connection_type'), a.get('connection_type') or '-') }} | {{ a.get('ip') or ip_fixo.get(s.object_id, '-') }}"
+        " | {{ (a.get('down_kilobytes_per_s') or 0) | float(0) | round(1) }} | {{ (a.get('up_kilobytes_per_s') or 0) | float(0) | round(1) }} |\n"
         "{% endfor %}\n{{ l | count }} aparelhos{% else %}Nenhum aparelho conectado{% endif %}").replace("'D'", f"'{deco}'")}
-rede_deco = [
-    heading("Wi-Fi mesh (Deco M4R)", "mdi:wifi"),
-    deco_card("sala", "Sala (principal)",
-              "CPU {{ states('sensor.deco_sala_cpu_usage') | int(0) }}% · memória {{ states('sensor.deco_sala_memory_usage') | int(0) }}%"),
-    clientes("Sala"),
+rede_office = [
+    heading("Deco Office", "mdi:router-wireless"),
     deco_card("office", "Office",
               "ligado por {{ 'cabo' if is_state('sensor.deco_office_backhaul_type', 'wired') else 'Wi-Fi' }}"),
     clientes("Office"),
+]
+rede_deco = [
+    heading("Deco Sala (principal)", "mdi:wifi"),
+    deco_card("sala", "Sala (principal)",
+              "CPU {{ states('sensor.deco_sala_cpu_usage') | int(0) }}% · memória {{ states('sensor.deco_sala_memory_usage') | int(0) }}%"),
+    clientes("Sala"),
     tpl("Observer MeshCore no Wi-Fi",
         "{% if is_state('binary_sensor.rede_observer', 'on') %}Conectado (192.168.0.27) desde {{ as_local(states.binary_sensor.rede_observer.last_changed).strftime('%d/%m %H:%M') }}"
         "{% else %}Fora do Wi-Fi desde {{ as_local(states.binary_sensor.rede_observer.last_changed).strftime('%d/%m %H:%M') }}{% endif %}",
         "mdi:access-point-network",
         "{{ 'green' if is_state('binary_sensor.rede_observer', 'on') else 'red' }}",
-        half=False, entity="binary_sensor.rede_observer", tap_action={"action": "more-info"}),
+        half=False, entity="binary_sensor.rede_observer", tap_action={"action": "more-info"}, grid_options={"columns": 12}),
     tpl("Tráfego agora",
         "↓ {{ (states('sensor.deco_sala_total_down')" + MBIT + " · ↑ {{ (states('sensor.deco_sala_total_up')" + MBIT + " Mbit/s",
-        "mdi:swap-vertical", "blue", half=False, entity="sensor.deco_sala_total_down", tap_action={"action": "more-info"}),
+        "mdi:swap-vertical", "blue", half=False, entity="sensor.deco_sala_total_down", tap_action={"action": "more-info"}, grid_options={"columns": 12}),
     graf("Tráfego Wi-Fi (24 h)", "mdi:chart-areaspline", [
         {"entity": "sensor.deco_sala_total_down", "name": "Download", "color": "#27ae60"},
         {"entity": "sensor.deco_sala_total_up", "name": "Upload", "color": "#9b51e0"}], horas=24, pph=4),
 ]
 view_rede = {
     "title": "Rede", "path": "rede", "icon": "mdi:lan", "type": "sections", "max_columns": 3,
-    "sections": [sec(*rede_internet), sec(*rede_latencia), sec(*rede_deco)],
+    "sections": [sec(*rede_internet, *rede_latencia), sec(*rede_deco), sec(*rede_office, *rede_quedas)],
 }
 
-config = {"title": "Casa", "views": [view_casa, view_sala, view_escritorio, view_externo, view_servidores, view_rede, view_mesh]}
+config = {"title": "Casa", "views": [view_casa, view_sala, view_escritorio, view_externo, view_servidores, view_rede, view_mesh, view_mesh_jun, view_mesh_sp, view_mesh_kam, view_mesh_msg, view_mesh_se, view_mesh_det, view_mesh_jun_det, view_mesh_sp_det, view_mesh_kam_det]}
 
 cmds = []
 if "--create" in sys.argv:

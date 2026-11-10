@@ -58,7 +58,7 @@ O script também acrescenta o envio para o Telegram no início de duas automaç�
 | `porta_aberta_madrugada` | Porta de entrada abriu entre 23:30 e 06:00. Também fala no alto-falante |
 | `telegram_internet` | A internet voltou depois de mais de 2 min fora, com o horário e a duração da queda. Durante a queda a mensagem não chegaria |
 | `telegram_deco_offline` | Um Deco ficou offline por 3 min, e quando ele volta |
-| `observer_wifi` | O observer MeshCore entrou no Wi-Fi ou saiu por 10 min |
+| `observer_wifi` | O observer MeshCore ficou 2 h sem responder ao ping, ou voltou depois disso |
 | `telegram_impressora` | A impressão 3D terminou (avisa se foi com erro) |
 | `telegram_chuva` | `binary_sensor.chuva_chegando` ligou, só das 07:00 às 22:30 e no máximo 1 vez a cada 3 h |
 | `telegram_servidores` | Disco acima de 90%, temperatura acima de 80 °C por 10 min, boreas sem resposta por 5 min (e a volta), Traefik fora por 3 min (e a volta), Pi-hole sem bloquear por 30 min, certificado vencendo em menos de 20 dias (checado às 10:00), atlas reiniciou |

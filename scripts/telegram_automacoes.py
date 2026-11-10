@@ -1,4 +1,6 @@
-# telegram_automacoes.py v1.4 (target -> chat_id, removido no HA 2026.9; acrescenta_tg substitui o passo antigo)
+# telegram_automacoes.py v1.6 (observer: aviso apos 2 h sem resposta)
+# v1.5 (IoT com dominio novo, bateria fraca, resumo semanal de manutencao e /manutencao)
+# v1.4 (target -> chat_id, removido no HA 2026.9; acrescenta_tg substitui o passo antigo)
 # v1.3 (bom dia, servidores, chuva) - alertas e comandos da casa via Telegram (aparelho novo, porta, internet, observer, impressora, Deco)
 # uso: python3 telegram_automacoes.py <token>  (roda no atlas)
 import os, json, sys, urllib.request
@@ -103,7 +105,7 @@ AGENDA = (
     "\n📅 <b>Amanhã</b>\n{% for e in ev | selectattr('ts', 'lt', ini + 172800) | selectattr('te', 'gt', ini + 86400) %}{{ linha(e) }}\n{% else %}nada marcado\n{% endfor %}"
 )
 AJUDA = ("🤖 <b>Comandos</b>\n/status · resumo da casa\n/rede · quem está no Wi-Fi\n/agenda · hoje e amanhã\n"
-         "/speedtest · mede a internet agora\n/apagar · apaga todas as luzes (pede confirmação)")
+         "/speedtest · mede a internet agora\n/apagar · apaga todas as luzes (pede confirmação)\n/manutencao · resumo de atualizações, backup, baterias e IoT")
 
 def cmd(nome, *seq):
     return {"conditions": [{"condition": "template", "value_template": "{{ trigger.event.data.command | regex_replace('@.*', '') == '" + nome + "' }}"}],
@@ -126,6 +128,7 @@ AUTOS["telegram_comandos"] = {
         cmd("/apagar", resp("{% set l = expand(" + LST + ") | selectattr('state', 'eq', 'on') | map(attribute='name') | list %}"
                             "{% if l %}💡 Acesas: {{ l | join(', ') }}\n\nApagar todas?{% else %}💡 Já está tudo apagado.{% endif %}",
                             inline_keyboard=["✅ Apagar tudo:/casa_apagar, ❌ Cancelar:/casa_cancelar"])),
+        cmd("/manutencao", {"event": "manutencao_teste"}),
     ], "default": [resp(AJUDA)]}],
 }
 AUTOS["telegram_botoes_casa"] = {
@@ -263,6 +266,72 @@ AUTOS["telegram_servidores"] = {
     "actions": [{"delay": {"seconds": "{{ 60 if trigger.id == 'boot' else 0 }}"}}, tg(SERV_MSG)],
 }
 
+# --- v1.5: bateria fraca, IoT com dominio novo (iot_dns.py no atlas) e resumo semanal ---
+BAT_IGNORAR = "celular|rubi"   # celular e aspirador carregam sozinhos
+BATERIAS = (
+    "{% set ns = namespace(l=[]) %}"
+    "{% for s in states.sensor | selectattr('attributes.device_class', 'defined') | selectattr('attributes.device_class', 'eq', 'battery') %}"
+    "{% if s.state | is_number and not s.entity_id is search('" + BAT_IGNORAR + "') %}{% set ns.l = ns.l + [(s.state | float, s.name | regex_replace(' (Bateria|Battery Percentage|Battery level)$', '') | regex_replace(' \\([0-9a-f]{6}\\)$', ''))] %}{% endif %}{% endfor %}"
+    "{% set bat = ns.l | sort %}"
+    "{% set fracas = bat | selectattr('0', 'lt', 20) | list %}"
+    "{% set bin = states.binary_sensor | selectattr('attributes.device_class', 'defined') | selectattr('attributes.device_class', 'eq', 'battery') | selectattr('state', 'eq', 'on') | map(attribute='name') | list %}"
+)
+AUTOS["telegram_bateria"] = {
+    "alias": "Telegram: bateria fraca",
+    "description": "Todo dia as 19:00, se algum aparelho a pilha estiver abaixo de 20%. Ignora celular e Rubi.",
+    "mode": "single",
+    "triggers": [{"trigger": "time", "at": "19:00:00"}, {"trigger": "event", "event_type": "bateria_teste"}],
+    "conditions": [{"condition": "template", "value_template": BATERIAS + "{{ fracas | count > 0 or bin | count > 0 or trigger.platform == 'event' }}"}],
+    "actions": [tg(BATERIAS + "🔋 <b>Bateria fraca</b>\n{% for v, n in fracas %}• {{ n }}: <b>{{ v | int }}%</b>\n{% endfor %}"
+                  "{% for n in bin %}• {{ n }}: <b>fraca</b>\n{% endfor %}{% if not fracas and not bin %}Nenhuma abaixo de 20% (teste){% endif %}")],
+}
+AUTOS["telegram_iot_dominio"] = {
+    "alias": "Telegram: IoT falando com dominio novo",
+    "description": "Evento iot_dominio_novo do /DATA/AppData/iot-dns/iot_dns.py (cron de hora em hora no atlas).",
+    "mode": "queued",
+    "triggers": [{"trigger": "event", "event_type": "iot_dominio_novo"}],
+    "actions": [tg("🛡️ <b>IoT com domínio novo</b>\n"
+                   "{% set d = trigger.event.data %}{% if d.aparelho == 'varios' %}Mais {{ d.dominio }}: {{ d.exemplo }}"
+                   "{% else %}<b>{{ d.aparelho }}</b> ({{ d.ip }}) consultou <code>{{ d.exemplo }}</code>\n"
+                   "Domínio: <b>{{ d.dominio }}</b>{{ ' (bloqueado pelo Pi-hole)' if d.bloqueado else '' }}\n"
+                   "Nenhum IoT da casa tinha falado com ele antes.\n"
+                   "<a href=\"https://pihole.example.com/admin/queries?client_ip={{ d.ip }}\">Ver as consultas no Pi-hole</a>{% endif %}")],
+}
+MANUT = (
+    BATERIAS + SERV_PROBLEMAS +
+    "🧰 <b>Manutenção da semana</b>\n\n"
+    "⬆️ <b>Atualizações</b>\n"
+    "{% for u in states.update | selectattr('state', 'eq', 'on') %}• {{ u.name }}: {{ u.attributes.installed_version }} → {{ u.attributes.latest_version }}\n"
+    "{% else %}nenhuma pendente\n{% endfor %}"
+    "\n💾 <b>Backup</b>\n"
+    "{% set b = as_datetime(states('sensor.backup_last_successful_automatic_backup')) %}"
+    "{% if b %}último {{ as_local(b).strftime('%d/%m %H:%M') }} ({{ states('sensor.backup_last_successful_automatic_backup_size') | float(0) | round(1) }} MB)"
+    "{{ ' ⚠️ há ' ~ (now() - b).days ~ ' dias' if (now() - b).days >= 2 else ' ✅' }}{% else %}⚠️ nenhum backup automático com sucesso{% endif %}\n"
+    "\n🔋 <b>Baterias</b>\n{% for v, n in bat %}• {{ n }}: {{ v | int }}%{{ ' ⚠️' if v < 20 else '' }}\n{% endfor %}"
+    "\n🔌 <b>Indisponíveis agora</b>\n"
+    "{% set ind = namespace(d=[]) %}{% for s in states | selectattr('state', 'eq', 'unavailable') %}"
+    "{% set n = device_attr(s.entity_id, 'name_by_user') or device_attr(s.entity_id, 'name') or s.name %}"
+    "{% if n not in ind.d %}{% set ind.d = ind.d + [n] %}{% endif %}{% endfor %}"
+    "{{ ind.d | sort | join(', ') if ind.d else 'nada' }}\n"
+    "\n🖥️ <b>Servidores</b>: {{ 'tudo ok' if not p.l else p.l | join(', ') }}"
+    " · certificado vence em {{ (as_datetime(states('sensor.traefik_certificado')) - now()).days if as_datetime(states('sensor.traefik_certificado')) else '?' }} dias\n"
+    "{% set i = states.sensor.iot_dns %}{% if i %}"
+    "\n🛡️ <b>IoT e DNS</b>{{ ' (aprendendo até ' ~ as_timestamp(i.attributes.aprendizado_ate) | timestamp_custom('%d/%m') ~ ')' if i.attributes.aprendendo else '' }}\n"
+    "domínios novos na semana: <b>{{ i.state }}</b>{% for x in i.attributes.novos_7d %}\n• {{ x }}{% endfor %}\n"
+    "{% for a in i.attributes.aparelhos if not a.ignorado and a.consultas > 0 %}• {{ a.nome }}: {{ a.consultas }} consultas · {{ a.top }}\n{% endfor %}"
+    "{% if i.attributes.sem_dns %}sem consulta no Pi-hole na semana: {{ i.attributes.sem_dns | join(', ') }}\n{% endif %}"
+    "{% if i.attributes.ignorados %}ignorados (tráfego de celular no mesmo IP): {{ i.attributes.ignorados | join(', ') }}\n{% endif %}"
+    "{% endif %}"
+)
+AUTOS["telegram_manutencao"] = {
+    "alias": "Telegram: resumo semanal de manutencao",
+    "description": "Domingo 10:00 (ou /manutencao): atualizacoes, backup, baterias, indisponiveis, servidores e IoT/DNS.",
+    "mode": "single",
+    "triggers": [{"trigger": "time", "at": "10:00:00", "id": "hora"}, {"trigger": "event", "event_type": "manutencao_teste", "id": "teste"}],
+    "conditions": [{"condition": "or", "conditions": [{"condition": "trigger", "id": "teste"}, {"condition": "time", "weekday": ["sun"]}]}],
+    "actions": [tg(MANUT)],
+}
+
 def acrescenta_tg(aid, step):
     # poe o envio do Telegram no inicio da automacao; se ja existir, substitui (atualiza parametros)
     cfg = req("GET", f"/config/automation/config/{aid}")
@@ -276,4 +345,4 @@ def acrescenta_tg(aid, step):
 for aid, cfg in AUTOS.items():
     print(aid, req("POST", f"/config/automation/config/{aid}", {"id": aid, **cfg}))
 acrescenta_tg("porta_aberta_madrugada", tg("🚪 <b>Porta aberta</b> às {{ now().strftime('%H:%M') }}"))
-acrescenta_tg("observer_wifi", tg("📡 <b>Observer MeshCore</b>\n{{ 'Conectou no Wi-Fi (192.168.0.27)' if trigger.id == 'on' else 'Saiu do Wi-Fi há 10 min' }} · {{ now().strftime('%H:%M') }}"))
+acrescenta_tg("observer_wifi", tg("📡 <b>Observer MeshCore</b>\n{{ 'Voltou a responder (192.168.0.27) depois de ' ~ ((trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() // 3600) | int ~ ' h fora' if trigger.id == 'on' else 'Sem resposta há 2 h' }} · {{ now().strftime('%H:%M') }}"))

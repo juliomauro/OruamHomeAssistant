@@ -58,7 +58,7 @@ The script also adds the Telegram message at the start of two existing automatio
 | `porta_aberta_madrugada` | Front door opened between 23:30 and 06:00. Also speaks on the speaker |
 | `telegram_internet` | Internet came back after more than 2 min down, with the time and length of the outage. During the outage the message would not get through |
 | `telegram_deco_offline` | A Deco was offline for 3 min, and when it comes back |
-| `observer_wifi` | The MeshCore observer joined the Wi-Fi or left it for 10 min |
+| `observer_wifi` | The MeshCore observer has not answered ping for 2 h, or is back after that |
 | `telegram_impressora` | The 3D print finished (says if it ended with an error) |
 | `telegram_chuva` | `binary_sensor.chuva_chegando` turned on, only from 07:00 to 22:30 and at most once every 3 h |
 | `telegram_servidores` | Disk above 90%, temperature above 80 °C for 10 min, boreas not answering for 5 min (and when it is back), Traefik down for 3 min (and when it is back), Pi-hole not blocking for 30 min, certificate expiring in less than 20 days (checked at 10:00), atlas rebooted |

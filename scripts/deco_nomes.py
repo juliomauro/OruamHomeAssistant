@@ -1,10 +1,22 @@
 # deco_nomes.py v1.1 - da nomes aos aparelhos do Wi-Fi (device_tracker.wifi_*) casando por MAC
 # stdin: 1a linha token. Roda dentro do container do HA.
 import asyncio, sys, aiohttp
-NOMES = {  # MAC (como o Deco mostra, com hifen): (slug, nome)
+NOMES = {  # MAC: (slug, nome)
     "AA-BB-CC-00-00-01": ("boreas", "boreas"),
-    "AA-BB-CC-00-00-02": ("tv", "TV"),
-    "AA-BB-CC-00-00-03": ("camera_sala", "Câmera sala"),
+    "AA-BB-CC-00-00-02": ("atlas", "atlas"),
+    "AA-BB-CC-00-00-03": ("relogio_suite", "Relógio suíte"),
+    "AA-BB-CC-00-00-04": ("som_atelier", "Som atelier"),
+    "AA-BB-CC-00-00-05": ("meshcore_companion", "MeshCore companion"),
+    "AA-BB-CC-00-00-06": ("icomm_28", "iComm .28"),
+    "AA-BB-CC-00-00-07": ("tv", "TV"),
+    "AA-BB-CC-00-00-08": ("fire_tv", "Fire TV"),
+    "AA-BB-CC-00-00-09": ("tuya_6", "Tuya .6"),
+    "AA-BB-CC-00-00-0A": ("tuya_8", "Tuya .8"),
+    "AA-BB-CC-00-00-0B": ("tuya_11", "Tuya .11"),
+    "AA-BB-CC-00-00-0C": ("tuya_4", "Tuya .4"),
+    "AA-BB-CC-00-00-0D": ("esp_12", "ESP .12"),
+    "AA-BB-CC-00-00-0E": ("esp_18", "ESP .18"),
+    "AA-BB-CC-00-00-0F": ("camera_sala", "Câmera sala"),
 }
 async def main():
     tok = sys.stdin.readline().strip()

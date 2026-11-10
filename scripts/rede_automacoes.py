@@ -1,4 +1,6 @@
-# rede_automacoes.py v1.0 - renomeia o ping do observer e cria automacoes de Wi-Fi
+# rede_automacoes.py v1.2 (observer: so avisa apos 2 h sem resposta)
+# v1.1 (observer: so avisa que voltou se ficou >=10 min fora)
+# v1.0 - renomeia o ping do observer e cria automacoes de Wi-Fi
 # uso: python3 rede_automacoes.py <token>  (roda no atlas)
 import os, json, sys, urllib.request
 T = sys.argv[1]; B = os.environ.get("HA_URL", "http://127.0.0.1:8123") + "/api"
@@ -20,15 +22,16 @@ AUTOS = {
     },
     "observer_wifi": {
         "alias": "MeshCore: observer no Wi-Fi",
-        "description": "Avisa quando o REP-CASA-4387 (reserva .27) entra ou sai do Wi-Fi.",
+        "description": "Avisa quando o REP-CASA-4387 (reserva .27) fica sem responder ao ping por 2 h seguidas, e quando volta depois disso.",
         "mode": "single",
         "triggers": [
             {"trigger": "state", "entity_id": "binary_sensor.rede_observer", "from": "off", "to": "on", "id": "on"},
-            {"trigger": "state", "entity_id": "binary_sensor.rede_observer", "from": "on", "to": "off", "for": {"minutes": 10}, "id": "off"}],
+            {"trigger": "state", "entity_id": "binary_sensor.rede_observer", "from": "on", "to": "off", "for": {"hours": 2}, "id": "off"}],
+        "conditions": [{"condition": "template", "value_template": "{{ trigger.id == 'off' or (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() >= 7200 }}"}],
         "actions": [{"action": "persistent_notification.create", "data": {
             "notification_id": "observer_wifi",
             "title": "Observer MeshCore",
-            "message": "{{ 'Conectou no Wi-Fi (192.168.0.27) em ' if trigger.id == 'on' else 'Saiu do Wi-Fi há 10 min, desde ' }}{{ now().strftime('%d/%m %H:%M') }}."}}],
+            "message": "{{ 'Voltou a responder (192.168.0.27) em ' if trigger.id == 'on' else 'Sem resposta há 2 h, desde ' }}{{ now().strftime('%d/%m %H:%M') }}."}}],
     },
 }
 for aid, cfg in AUTOS.items():

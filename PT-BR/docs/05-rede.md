@@ -89,7 +89,7 @@ O `rede_automacoes.py` cria duas automações. Depois o `telegram_automacoes.py`
 | Automação | Gatilho |
 |---|---|
 | `wifi_aparelho_novo` | Evento `entity_registry_updated` com `action: create` e `entity_id` casando `device_tracker\.(sala\|office)_deco_` |
-| `observer_wifi` | `binary_sensor.rede_observer` liga, ou fica desligado por 10 min |
+| `observer_wifi` | `binary_sensor.rede_observer` fica desligado por 2 h, ou volta depois de 2 h ou mais desligado |
 
 A integração do Deco **não dispara evento de cliente novo**. Mas ela cria um `device_tracker` uma única vez por MAC nunca visto, e essa criação é o sinal de "aparelho novo". O tracker novo nasce desativado.
 
