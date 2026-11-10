@@ -23,7 +23,10 @@ The tabs use the `sections` view type:
 | Externo (outside) | Backyard lights, front door (state and battery), weather |
 | Servidores (servers) | atlas and boreas (CPU, memory, disk, network), Traefik, Pi-hole, Plex, Transmission |
 | Rede (network) | Internet (status, public IP, speedtest), 24 h latency, 48 h outages, Decos with their client lists, traffic |
-| Mesh | Companion, repeater, observer, messages, Public channel, community nodes (CoreScope). Kept in English to share with the community |
+| Mesh | Summary of my repeater, a friend's repeater and the companion. Kept in English (like the other mesh tabs) to share with the community |
+| Region, Capital, Abroad | One tab per group of community repeaters (CoreScope): a comparison table and a 7-day graph on top, then a short card per repeater |
+| Messages | Send a message, my latest messages, Public channel of the whole network |
+| Abroad chat | Two channels from another CoreScope (a local hashtag channel and Public) |
 
 Script tips:
 
@@ -33,7 +36,16 @@ Script tips:
 
 The client list of each Deco is a markdown card that loops over the `device_tracker.wifi_*` entities with `attributes.deco_device == 'Sala'`.
 
-### Examples
+### Mesh tabs: summary plus a details page
+
+The first version showed every counter as a tile, and the tabs became a wall of cards. Now each mesh tab shows only a summary, and everything else lives in a **subview**:
+
+- **Summary** (`resumo_repetidor`, `resumo_companion`, `resumo_cs()`): one status card, 4 big numbers in a row (`kpi()`, mushroom card with `layout: vertical`, 3 columns each), one or two lines that group several values (`linha()`, Ex: "130 sent · 137 received · 7 errors · airtime 0.1%"), one graph and an **All details** link (`detalhes()`).
+- **Details** (`mesh-details`, `mesh-region-details` and so on): the full layout with every sensor as a tile, the neighbor and observer tables and all graphs (`cs_full()`, `mesh_repetidor`, `mesh_companion`).
+- A subview uses `"subview": true` and `"back_path"`. It does not show up in the tab bar, and the header gets a back arrow.
+- `regiao()` returns two views (summary and details) for a list of nodes, so a new region is one line in the script.
+- In the region tab the comparison section uses `column_span: 4` and its cards use `grid_options.columns: 24`, so the table and the graph sit side by side.
+
 
 The images are mockups with fictitious data, reproducing the layout and the cards of each tab.
 

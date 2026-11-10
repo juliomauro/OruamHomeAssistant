@@ -25,7 +25,7 @@ Toda mensagem recebida dispara o evento `meshcore_message`. Um sensor de templat
 
 O CoreScope é um site da comunidade que mostra os nós do mesh, quem repetiu o quê e os observers. No meu caso uso o `corescope.example.org`. A API dele é pública; a documentação fica em `/api/spec`. Mande um `User-Agent` próprio.
 
-O `corescope_rest.py` gera os itens `rest:` para uma lista de nós (dicionário `NOS`: slug, nome, chave pública):
+O `corescope_rest.py` gera os itens `rest:` para uma lista de nós (dicionário `NOS`: slug, nome, chave pública e, opcionalmente, a base da API de outro CoreScope como 3º item, para nós de outro país):
 
 ```bash
 python3 corescope_rest.py > corescope.yaml   # cole dentro de rest:
@@ -36,7 +36,9 @@ python3 corescope_rest.py > corescope.yaml   # cole dentro de rest:
 | `sensor.corescope_<slug>` (pacotes repetidos 24 h + atributos do nó) | `/api/nodes/<pk>` | 1 h |
 | `_disponibilidade`, `_relogio` | `/api/nodes/<pk>/analytics?days=7` | 3 h |
 | `_vizinhos`, `_melhor_vizinho` | `/api/nodes/<pk>/neighbors` | 1 h |
+| `_observers` (quem ouve o nó, com RSSI, SNR e pacotes) | `/api/nodes/<pk>/health` | 1 h |
 | `sensor.corescope_canal_public` | `/api/channels/Public/messages?limit=20` | 2 min |
+| `sensor.corescope_canal_<slug>` (canais de outro CoreScope, Ex: `#local` vira `%23local` na URL) | `/api/channels/<canal>/messages?limit=20` | 2 min |
 | `sensor.corescope_meu_observer*` (pacotes por hora, último pacote, firmware) | `/api/observers` | 10 min |
 
 O resultado gerado no meu caso está em [`config/configuration-corescope.yaml`](../../config/configuration-corescope.yaml).
@@ -46,6 +48,8 @@ Cuidados:
 - Uma unidade `%` no YAML precisa de aspas (`"%"`). Sem aspas a configuração quebra.
 - O `json_attributes_path` com filtro (`$[?(...)]`) **não funciona** no HA. Para pegar um item de uma lista, crie sensores separados com `selectattr` no `value_template`.
 - A resposta de `analytics` de um nó movimentado tem cerca de 1,7 MB. Não diminua o intervalo.
+- Os atributos `neighbors` e `observers` podem passar de 16 KB. O HA continua usando nos templates, mas o recorder avisa e não grava no histórico. Para calar o aviso, exclua `sensor.corescope_*_vizinhos` e `sensor.corescope_*_observers` do `recorder:`.
+- O nome de cada sensor leva o slug (Ex: `CoreScope cap_1 disponibilidade`), então os entity ids seguem `sensor.corescope_<slug>_<sufixo>`. Se o HA criou com outro nome, renomeie no registro de entidades, senão os cards do painel mostram "entidade não encontrada".
 
 ## 6.4 Diagnóstico do observer
 

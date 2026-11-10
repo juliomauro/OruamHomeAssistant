@@ -763,9 +763,9 @@ view_mesh_det = {
                  sec(*cs_full("amigo", "REP-AMIGO-07C8", titulo="A friend's repeater (CoreScope)", icon="mdi:account-heart", cor="#eb5757")),
                  sec(*mesh_companion)],
 }
-view_mesh_jun, view_mesh_jun_det = regiao("da região", "mesh-regiao", "mdi:map-marker-radius", NOS_JUN, CS_BR, CORES)
+view_mesh_jun, view_mesh_jun_det = regiao("Region", "mesh-region", "mdi:map-marker-radius", NOS_JUN, CS_BR, CORES)
 view_mesh_sp, view_mesh_sp_det = regiao("Capital", "mesh-sp", "mdi:city", NOS_CAP, CS_BR, CORES)
-view_mesh_kam, view_mesh_kam_det = regiao("Exterior", "mesh-exterior", "mdi:airplane", NOS_EXT, CS_SE, CORES)
+view_mesh_kam, view_mesh_kam_det = regiao("Abroad", "mesh-abroad-nodes", "mdi:airplane", NOS_EXT, CS_SE, CORES)
 _pub = sec(heading("Public channel · whole network (CoreScope)", "mdi:forum"), canal_md("sensor.corescope_canal_public", "corescope.example.org"))
 _pub["column_span"] = 2
 for _c in _pub["cards"]: _c["grid_options"] = {"columns": "full"}

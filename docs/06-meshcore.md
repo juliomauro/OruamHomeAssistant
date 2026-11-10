@@ -25,7 +25,7 @@ Every received message fires the `meshcore_message` event. A template sensor kee
 
 CoreScope is a community website that shows the mesh nodes, who relayed what and the observers. In my case I use `corescope.example.org`. Its API is public, and the documentation is at `/api/spec`. Send your own `User-Agent`.
 
-`corescope_rest.py` generates the `rest:` items for a list of nodes (the `NOS` dictionary: slug, name, public key):
+`corescope_rest.py` generates the `rest:` items for a list of nodes (the `NOS` dictionary: slug, name, public key and, optionally, the API base of another CoreScope as a 3rd item, for nodes in another country):
 
 ```bash
 python3 corescope_rest.py > corescope.yaml   # paste inside rest:
@@ -36,7 +36,9 @@ python3 corescope_rest.py > corescope.yaml   # paste inside rest:
 | `sensor.corescope_<slug>` (packets relayed in 24 h + node attributes) | `/api/nodes/<pk>` | 1 h |
 | `_disponibilidade` (availability), `_relogio` (clock) | `/api/nodes/<pk>/analytics?days=7` | 3 h |
 | `_vizinhos` (neighbors), `_melhor_vizinho` (best neighbor) | `/api/nodes/<pk>/neighbors` | 1 h |
+| `_observers` (who hears the node, with RSSI, SNR and packets) | `/api/nodes/<pk>/health` | 1 h |
 | `sensor.corescope_canal_public` | `/api/channels/Public/messages?limit=20` | 2 min |
+| `sensor.corescope_canal_<slug>` (channels of another CoreScope, Ex: `#local` is `%23local` in the URL) | `/api/channels/<channel>/messages?limit=20` | 2 min |
 | `sensor.corescope_meu_observer*` (packets per hour, last packet, firmware) | `/api/observers` | 10 min |
 
 The result generated for my case is in [`config/configuration-corescope.yaml`](../config/configuration-corescope.yaml).
@@ -46,6 +48,8 @@ Watch out:
 - A `%` unit in YAML needs quotes (`"%"`). Without quotes the configuration breaks.
 - `json_attributes_path` with a filter (`$[?(...)]`) does **not work** in HA. To pick one item from a list, create separate sensors with `selectattr` in the `value_template`.
 - The `analytics` answer for a busy node is about 1.7 MB. Do not lower the interval.
+- The `neighbors` and `observers` attributes can pass 16 KB. HA still uses them in the templates, but the recorder warns and does not save them in the history. To silence it, exclude `sensor.corescope_*_vizinhos` and `sensor.corescope_*_observers` from the `recorder:`.
+- Each sensor name carries its slug (Ex: `CoreScope cap_1 disponibilidade`), so the entity ids follow `sensor.corescope_<slug>_<suffix>`. If HA created them with another name, rename them in the entity registry, otherwise the dashboard cards show "entity not found".
 
 ## 6.4 Observer troubleshooting
 

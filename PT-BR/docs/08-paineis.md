@@ -23,7 +23,10 @@ As abas usam o tipo `sections`:
 | Externo | Luzes do quintal, porta de entrada (estado e bateria), clima |
 | Servidores | atlas e boreas (CPU, memória, disco, rede), Traefik, Pi-hole, Plex, Transmission |
 | Rede | Internet (status, IP público, speedtest), latência 24 h, quedas 48 h, Decos com a lista de conectados, tráfego |
-| Mesh | Companion, repetidor, observer, mensagens, canal Public, nós da comunidade (CoreScope). Fica em inglês para mostrar para a comunidade |
+| Mesh | Resumo do meu repetidor, do repetidor de um amigo e do companion. Fica em inglês (como as outras abas de mesh) para mostrar para a comunidade |
+| Region, Capital, Abroad | Uma aba por grupo de repetidoras da comunidade (CoreScope): tabela de comparação e gráfico de 7 dias em cima, depois um card curto por repetidora |
+| Messages | Envio de mensagem, minhas últimas mensagens, canal Public da rede inteira |
+| Abroad chat | Dois canais de outro CoreScope (um canal hashtag local e o Public) |
 
 Dicas do script:
 
@@ -33,7 +36,16 @@ Dicas do script:
 
 A lista de conectados de cada Deco é um card markdown que percorre os `device_tracker.wifi_*` com `attributes.deco_device == 'Sala'`.
 
-### Exemplos
+### Abas de mesh: resumo mais página de detalhes
+
+A primeira versão mostrava cada contador como um tile, e as abas viraram uma parede de cards. Agora cada aba de mesh mostra só um resumo, e o resto fica numa **subview**:
+
+- **Resumo** (`resumo_repetidor`, `resumo_companion`, `resumo_cs()`): um card de status, 4 números grandes numa linha (`kpi()`, card mushroom com `layout: vertical`, 3 colunas cada), uma ou duas linhas que juntam vários valores (`linha()`, Ex: "130 sent · 137 received · 7 errors · airtime 0.1%"), um gráfico e o link **All details** (`detalhes()`).
+- **Detalhes** (`mesh-details`, `mesh-region-details` etc.): o layout completo, com cada sensor como tile, as tabelas de vizinhos e de observers e todos os gráficos (`cs_full()`, `mesh_repetidor`, `mesh_companion`).
+- A subview usa `"subview": true` e `"back_path"`. Ela não aparece na barra de abas, e o cabeçalho ganha uma seta de voltar.
+- `regiao()` devolve duas views (resumo e detalhes) para uma lista de nós; uma região nova é uma linha no script.
+- Na aba de região, a seção de comparação usa `column_span: 4` e os cards dela `grid_options.columns: 24`, para a tabela e o gráfico ficarem lado a lado.
+
 
 As imagens são maquetes com dados fictícios, que reproduzem o layout e os cards de cada aba.
 
